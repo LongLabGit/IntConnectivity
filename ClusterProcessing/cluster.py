@@ -134,17 +134,27 @@ class ClusterGroup(object):
         :param ISIThreshold: spikes with ISIs less than threshold will be removed
         :return: cluster object
         '''
+        # TODO: correct amplitudes, i.e., sort after merging and remove amplitudes belonging to removed spikes
         mainCluster = mergeClusters_[0]
         mergeClusters = mergeClusters_[1:]
         allSpikeTimes = list(self.clusters[mainCluster].spiketrains[0].magnitude)
+        allAmplitudes = list(self.clusters[mainCluster].templateAmplitudes)
         for mergeCluster in mergeClusters:
             mergeSpikeTimes = list(self.clusters[mergeCluster].spiketrains[0].magnitude)
             allSpikeTimes.extend(mergeSpikeTimes)
-        newSpikeTimes = np.array(allSpikeTimes)
-        newSpikeTimes.sort()
+            mergeAmplitudes = list(self.clusters[mergeCluster].templateAmplitudes)
+            allAmplitudes.extend(mergeAmplitudes)
+        allSpikeTimes = np.array(allSpikeTimes)
+        allAmplitudes = np.array(allAmplitudes)
+        spikeTimeSort = np.argsort(allSpikeTimes)
+        newSpikeTimes = allSpikeTimes[spikeTimeSort]
+        newAmplitudes = allAmplitudes[spikeTimeSort]
         newSpikeTrain = SpikeTrain(newSpikeTimes, units=self.clusters[mainCluster].spiketrains[0].units,
                                        t_stop=np.max(newSpikeTimes), t_start=np.min(newSpikeTimes))
         newCluster = Cluster('tmp', 'none', newSpikeTrain)
+        newCluster.waveForm = self.clusters[mainCluster].waveForm
+        newCluster.template = self.clusters[mainCluster].template
+        newCluster.templateAmplitudes = newAmplitudes
         self.clusters['tmp'] = newCluster
         self.remove_short_ISIs('tmp', ISIThreshold)
         return self.clusters.pop('tmp')

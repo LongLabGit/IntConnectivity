@@ -16,12 +16,12 @@ def read_KS_clusters(dataFolder, ClusteringSrcFolder, version, keep_group, sampl
     if version == 'release':
         KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'batches', 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'batches', 'spike_clusters.npy')).flatten()
-        amplitudes = np.load(os.path.join(dataFolder, 'batches', 'amplitudes.npy')).flatten()
+        # amplitudes = np.load(os.path.join(dataFolder, 'batches', 'amplitudes.npy')).flatten()
         cluster_group_fname = os.path.join(dataFolder, 'batches', 'cluster_groups.csv')
     elif version == 'dev':
         KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'spike_clusters.npy')).flatten()
-        amplitudes = np.load(os.path.join(dataFolder, 'amplitudes.npy')).flatten()
+        # amplitudes = np.load(os.path.join(dataFolder, 'amplitudes.npy')).flatten()
         cluster_group_fname = os.path.join(dataFolder, 'cluster_group.tsv')
     else:
         errstr = 'Cluster loading for version %s not implemented' % version
@@ -96,11 +96,11 @@ def read_KS_clusters_unsorted(dataFolder, ClusteringSrcFolder, version, sampling
     if version == 'release':
         KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'batches', 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'batches', 'spike_clusters.npy')).flatten()
-        amplitudes = np.load(os.path.join(dataFolder, 'batches', 'amplitudes.npy')).flatten()
+        # amplitudes = np.load(os.path.join(dataFolder, 'batches', 'amplitudes.npy')).flatten()
     elif version == 'dev':
         KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'spike_clusters.npy')).flatten()
-        amplitudes = np.load(os.path.join(dataFolder, 'amplitudes.npy')).flatten()
+        # amplitudes = np.load(os.path.join(dataFolder, 'amplitudes.npy')).flatten()
     else:
         errstr = 'Cluster loading for version %s not implemented' % version
         raise NotImplementedError(errstr)
@@ -121,7 +121,7 @@ def read_KS_clusters_unsorted(dataFolder, ClusteringSrcFolder, version, sampling
         clusterSpikeSamples, uniqueIndices = np.unique(spikeSamples[spikeTimeIndices, 0], return_index=True)
         spikeTimes = clusterSpikeSamples/samplingRate
         spikeTrain = neo.core.SpikeTrain(spikeTimes, units='sec', t_stop=max(spikeTimes), t_start=min(0, min(spikeTimes)))
-        templateAmplitudes = amplitudes[spikeTimeIndices[0][uniqueIndices]]
+        templateAmplitudes = spikeSamples[spikeTimeIndices[0][uniqueIndices], 2]
         # find channel location of max. waveform
         # look up original clusters comprising this unit
         originalClusters = np.array(np.unique(spikeSamples[spikeTimeIndices, 1]), dtype='int') - 1  # Matlab vs. python indexing

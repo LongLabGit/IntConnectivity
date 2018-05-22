@@ -12,7 +12,7 @@ import sys, os, ast, cPickle
 import matplotlib.pyplot as plt
 import numpy as np
 import neo, elephant
-import scipy.signal
+import scipy.signal, scipy.stats
 import ConnectionAnalyzer as ca
 import ClusterProcessing as clust
 import quantities as pq
@@ -45,9 +45,9 @@ def main(experimentInfoName):
     STAlignedSnippets = {}
     alignedWindow = (-10.0*pq.ms, 25.0*pq.ms)
 
-    # for clusterID in clusters.keys():
+    for clusterID in clusters.keys():
     # for clusterID in [0, 82]:
-    for clusterID in [979]:
+    # for clusterID in [979]:
         cluster = clustGroup.clusters[clusterID]
         print 'Removed %d duplicate spike times due to misalignment' % cluster.nrMergedDuplicateSpikes
         # cluster = clusters[clusterID]
@@ -58,8 +58,8 @@ def main(experimentInfoName):
         plt.figure(clusterID)
         SE = np.std(STAlignedSnippets[clusterID].snippets, axis=0)/np.sqrt(len(STAlignedSnippets[clusterID].snippets))
         plt.plot(timeAxis, STAlignedTraces[clusterID], 'k', linewidth=0.5)
-        plt.plot(timeAxis, STAlignedTraces[clusterID].magnitude + SE, 'k--', linewidth=0.5)
-        plt.plot(timeAxis, STAlignedTraces[clusterID].magnitude - SE, 'k--', linewidth=0.5)
+        plt.plot(timeAxis, STAlignedTraces[clusterID].magnitude + 2*SE, 'k--', linewidth=0.5)
+        plt.plot(timeAxis, STAlignedTraces[clusterID].magnitude - 2*SE, 'k--', linewidth=0.5)
         plt.plot([0, 0], plt.ylim(), 'r--', linewidth=0.5)
         plt.xlim([alignedWindow[0].magnitude, alignedWindow[1].magnitude])
         plt.xlabel('Time (ms)')
@@ -80,7 +80,8 @@ def individual_spike_triggered_currents(experimentInfoName, clusterID):
         experimentInfo = ast.literal_eval(dataFile.read())
 
     # STPickleName = 'STSnippets_Cluster_%d.pkl' % clusterID
-    STPickleNameShuffled = 'STSnippets_shuffled_100x_Cluster_%d_95-300s.pkl' % clusterID
+    # STPickleNameShuffled = 'STSnippets_shuffled_100x_Cluster_%d_95-300s.pkl' % clusterID
+    STPickleNameShuffled = 'STSnippets_shuffled_10x_Cluster_%d.pkl' % clusterID
     STSnippetShuffledName = os.path.join(experimentInfo['STA']['DataBasePathI'], STPickleNameShuffled)
     STPickleName = 'STSnippets_Cluster_%d.pkl' % clusterID
     STSnippetName = os.path.join(experimentInfo['STA']['DataBasePathI'], STPickleName)
@@ -90,13 +91,17 @@ def individual_spike_triggered_currents(experimentInfoName, clusterID):
         clusterSnippets = cPickle.load(STSnippetFile)
     clusterSTA = np.mean(clusterSnippets.snippets, axis=0)
     peakBin = np.argmax(clusterSTA)
-    tPeak = peakBin/experimentInfo['WC']['SamplingRate'] # s
+    # tPeak = peakBin/experimentInfo['WC']['SamplingRate'] # s
     tOffset = 0.01 # s
     offsetBin = int(tOffset*experimentInfo['WC']['SamplingRate'])
     timeAxis = (np.array(range(len(clusterSTA)))/experimentInfo['WC']['SamplingRate'] - tOffset)*1000.0 # ms
-    tOffsetPlot = 0.3 # ms
-    tPeakPlot = (tPeak-tOffset)*1000.0 # ms
-    tPeakPlot2 = 1.2 # ms
+    # tOffsetPlot1 = 0.3 # ms
+    tOffsetPlot1 = -1.2 # ms
+    tOffsetPlot2 = -0.2 # ms
+    # tPeakPlot = (tPeak-tOffset)*1000.0 # ms
+    tPeakPlot = 3.0 # ms
+    # tPeakPlot2 = 1.2 # ms
+    tPeakPlot2 = 2.0 # ms
 
     tracesPerPage = 10
     # nrTraces = 40
@@ -136,31 +141,102 @@ def individual_spike_triggered_currents(experimentInfoName, clusterID):
 
     tPeakOffset1 = 2.0
     tPeakOffset2 = 3.0
-    ampOffsetBin = int((tOffsetPlot/1000.0 + tOffset)*experimentInfo['WC']['SamplingRate'])
+    # ampOffsetBin = int((tOffsetPlot/1000.0 + tOffset)*experimentInfo['WC']['SamplingRate'])
+    ampOffsetBin1 = int((tOffsetPlot1/1000.0 + tOffset)*experimentInfo['WC']['SamplingRate'])
+    ampOffsetBin2 = int((tOffsetPlot2/1000.0 + tOffset)*experimentInfo['WC']['SamplingRate'])
     ampPeakBin1 = int((tPeakOffset1/1000.0 + tOffset)*experimentInfo['WC']['SamplingRate'])
     ampPeakBin2 = int((tPeakOffset2/1000.0 + tOffset)*experimentInfo['WC']['SamplingRate'])
     # ampPeakBin = peakBin
     amplitudes = []
     amplitudes_0_95 = []
     amplitudes_95_end = []
+    spikeTimes_0_95 = []
+    spikeTimes_95_end = []
     for i, snippet in enumerate(clusterSnippets.snippets):
         # amp = np.max(snippet[ampOffsetBin:ampPeakBin]) - snippet[ampOffsetBin]
-        amp = np.max(snippet[ampPeakBin1:ampPeakBin2]) - snippet[ampOffsetBin]
-        amplitudes.append(amp.magnitude)
-        if clusterSnippets.snippetSpikeTimes[i] < 95.0:
-            amplitudes_0_95.append(amp.magnitude)
+        # amp = np.max(snippet[ampPeakBin1:ampPeakBin2]) - snippet[ampOffsetBin]
+        amp = np.median(snippet[ampPeakBin1:ampPeakBin2]) - np.median(snippet[ampOffsetBin1:ampOffsetBin2])
+        # amplitudes.append(amp.magnitude)
+        amplitudes.append(amp)
+        if clusterSnippets.snippetSpikeTimes[i] < 100.0:
+            # amplitudes_0_95.append(amp.magnitude)
+            amplitudes_0_95.append(amp)
+            spikeTimes_0_95.append(clusterSnippets.snippetSpikeTimes[i])
         else:
-            amplitudes_95_end.append(amp.magnitude)
-    amplitudes = np.array(amplitudes)
-    amplitudes_0_95 = np.array(amplitudes_0_95)
-    amplitudes_95_end = np.array(amplitudes_95_end)
+            # amplitudes_95_end.append(amp.magnitude)
+            amplitudes_95_end.append(amp)
+            spikeTimes_95_end.append(clusterSnippets.snippetSpikeTimes[i])
+    amplitudes = np.array(amplitudes).flatten()
+    amplitudes_0_95 = np.array(amplitudes_0_95).flatten()
+    amplitudes_95_end = np.array(amplitudes_95_end).flatten()
+
+    ISIs = np.diff(clusterSnippets.snippetSpikeTimes)
+    ISIs_0_95 = np.diff(spikeTimes_0_95)
+    ISIs_95_end = np.diff(spikeTimes_95_end)
+    # plt.plot(ISIs, amplitudes[1:])
+    bins = np.geomspace(np.min(ISIs), np.max(ISIs), 8)
+    # bins = np.arange(0.0, np.max(ISIs) + 0.1, 0.1)
+    meanAmp, _, _ = scipy.stats.binned_statistic(ISIs, amplitudes[1:], statistic='mean', bins=bins)
+    stdAmp, _, _ = scipy.stats.binned_statistic(ISIs, amplitudes[1:], statistic=(lambda x: np.sqrt(np.dot(x - np.mean(x), x - np.mean(x))/len(x))), bins=bins)
+    meanAmp_0_95, _, _ = scipy.stats.binned_statistic(ISIs_0_95, amplitudes_0_95[1:], statistic='mean', bins=bins)
+    stdAmp_0_95, _, _ = scipy.stats.binned_statistic(ISIs_0_95, amplitudes_0_95[1:], statistic=(lambda x: np.sqrt(np.dot(x - np.mean(x), x - np.mean(x))/len(x))), bins=bins)
+    meanAmp_95_end, _, _ = scipy.stats.binned_statistic(ISIs_95_end, amplitudes_95_end[1:], statistic='mean', bins=bins)
+    stdAmp_95_end, _, _ = scipy.stats.binned_statistic(ISIs_95_end, amplitudes_95_end[1:], statistic=(lambda x: np.sqrt(np.dot(x - np.mean(x), x - np.mean(x))/len(x))), bins=bins)
+    plt.figure(0)
+    # plt.loglog(ISIs, amplitudes[1:], 'ko')
+    # plt.semilogx(ISIs, amplitudes[1:], 'ko')
+    # plt.semilogx(ISIs_0_95, amplitudes_0_95[1:], 'ro', label='0 - 100 s')
+    plt.plot(ISIs_0_95, amplitudes_0_95[1:], 'ro', label='0 - 100 s')
+    # plt.xlabel('ISI (s)')
+    # plt.ylabel('IPSC amplitude (pA)')
+    # plt.title('0-100 s')
+    # plt.figure(1)
+    # plt.loglog(ISIs, amplitudes[1:], 'ko')
+    # plt.semilogx(ISIs, amplitudes[1:], 'ko')
+    # plt.semilogx(ISIs_95_end, amplitudes_95_end[1:], 'bo', label='100 s - end')
+    fit = np.polyfit(ISIs_0_95, amplitudes_0_95[1:], 1)
+    fit_fn = np.poly1d(fit)
+    x = np.min(ISIs_0_95), np.max(ISIs_0_95)
+    plt.plot(x, fit_fn(x), 'k-')
+    plt.xlabel('ISI (s)')
+    plt.ylabel('IPSC amplitude (pA)')
+    plt.legend()
+    # plt.title('100 s - end')
+    fig = plt.figure(2)
+    ax = fig.add_subplot(111)
+    # plotBins = bins[:-1][np.logical_not(np.isnan(meanAmp))] + 0.5*np.diff(bins)[np.logical_not(np.isnan(meanAmp))]
+    # plotMean = meanAmp[np.logical_not(np.isnan(meanAmp))]
+    # plotStd = stdAmp[np.logical_not(np.isnan(meanAmp))]
+    # plt.errorbar(plotBins, plotMean, yerr=plotStd, fmt='ko-', label='all')
+    plotBins_0_95 = bins[:-1][np.logical_not(np.isnan(meanAmp_0_95))] + 0.5*np.diff(bins)[np.logical_not(np.isnan(meanAmp_0_95))]
+    plotMean_0_95 = meanAmp_0_95[np.logical_not(np.isnan(meanAmp_0_95))]
+    plotStd_0_95 = stdAmp_0_95[np.logical_not(np.isnan(meanAmp_0_95))]
+    plt.errorbar(plotBins_0_95, plotMean_0_95, yerr=plotStd_0_95, fmt='ro-', label='0 - 100 s')
+    plotBins_95_end = bins[:-1][np.logical_not(np.isnan(meanAmp_95_end))] + 0.5*np.diff(bins)[np.logical_not(np.isnan(meanAmp_95_end))]
+    plotMean_95_end = meanAmp_95_end[np.logical_not(np.isnan(meanAmp_95_end))]
+    plotStd_95_end = stdAmp_95_end[np.logical_not(np.isnan(meanAmp_95_end))]
+    plt.errorbar(plotBins_95_end, plotMean_95_end, yerr=plotStd_95_end, fmt='bo-', label='100 s - end')
+    ax.set_xscale('log')
+    plt.xlabel('ISI (s)')
+    plt.ylabel('IPSC amplitude (pA)')
+    plt.legend()
+    plt.ylim([0, 150.0])
+    # plt.show()
 
     amplitudesShuffled = []
     for i, snippet in enumerate(clusterSnippetsShuffled.snippets):
         # amp = np.max(snippet[ampOffsetBin:ampPeakBin]) - snippet[ampOffsetBin]
-        amp = np.max(snippet[ampPeakBin1:ampPeakBin2]) - snippet[ampOffsetBin]
-        amplitudesShuffled.append(amp.magnitude)
+        # amp = np.max(snippet[ampPeakBin1:ampPeakBin2]) - snippet[ampOffsetBin]
+        amp = np.median(snippet[ampPeakBin1:ampPeakBin2].magnitude) - np.median(snippet[ampOffsetBin1:ampOffsetBin2].magnitude)
+        amplitudesShuffled.append(amp)
     amplitudesShuffled = np.array(amplitudesShuffled)
+
+    # ampName = 'STSnippets_Cluster_%d_amplitudes' % clusterID
+    # ampOutName = os.path.join(experimentInfo['STA']['DataBasePathI'], ampName)
+    # np.save(ampOutName, amplitudes)
+    # ampShuffledName = 'STSnippets_shuffled_10x_Cluster_%d_amplitudes' % clusterID
+    # ampShuffledOutName = os.path.join(experimentInfo['STA']['DataBasePathI'], ampShuffledName)
+    # np.save(ampShuffledOutName, amplitudesShuffled)
 
     # plt.figure(1)
     # plt.plot(clusterSnippets.snippetSpikeTimes, amplitudes, 'ko')
@@ -172,9 +248,9 @@ def individual_spike_triggered_currents(experimentInfoName, clusterID):
 
     # plt.figure(nrPages + 1)
     binSize = 2.0
-    # bins = np.arange(np.min(amplitudes), np.max(amplitudes)+binSize, binSize)
+    bins = np.arange(np.min(amplitudesShuffled), np.max(amplitudes)+binSize, binSize)
     # bins = np.arange(np.min(amplitudesShuffled), np.max(amplitudes_0_95)+binSize, binSize)
-    bins = np.arange(np.min(amplitudesShuffled), np.max(amplitudes_95_end)+binSize, binSize)
+    # bins = np.arange(np.min(amplitudesShuffled), np.max(amplitudes_95_end)+binSize, binSize)
     # hist, _ = np.histogram(amplitudes, bins)
     # # plt.hist(amplitudes, bins)
     # plt.bar(bins[:-1], hist, width=binSize)
@@ -194,15 +270,18 @@ def individual_spike_triggered_currents(experimentInfoName, clusterID):
     # plt.legend()
 
     plt.figure(nrPages + 2)
-    hist_95_end, _ = np.histogram(amplitudes_95_end, bins)
+    # hist_95_end, _ = np.histogram(amplitudes_95_end, bins)
+    hist, _ = np.histogram(amplitudes, bins)
     hist_shuffled, _ = np.histogram(amplitudesShuffled, bins)
     hist_shuffled = np.array(hist_shuffled, dtype='float64')
-    hist_shuffled *= 1.0*np.sum(hist_95_end)/np.sum(hist_shuffled)
+    hist_shuffled *= 1.0*np.sum(hist)/np.sum(hist_shuffled)
     # plt.hist(amplitudes, bins)
-    plt.bar(bins[:-1], hist_shuffled, width=binSize, linewidth=0, color='k', label='shuffled')
-    plt.bar(bins[:-1], hist_95_end, width=binSize, linewidth=0, color='r', label='spike times')
+    # plt.bar(bins[:-1], hist_shuffled, width=binSize, linewidth=0, color='k', label='shuffled')
+    # plt.bar(bins[:-1], hist, width=binSize, linewidth=0, color='r', label='spike times')
+    plt.plot(bins[:-1] + 0.5*binSize, hist_shuffled, 'k', label='shuffled')
+    plt.plot(bins[:-1] + 0.5*binSize, hist, 'r', label='spike times')
     plt.xlabel('Amplitude (pA)')
-    plt.ylabel('Events (during 95 s - end)')
+    plt.ylabel('Events')
     plt.legend()
 
     # # ISIs
@@ -471,6 +550,7 @@ def compute_ST_traces_average(cluster, WCSignals, WCSignalNames, WCWindows, WCAl
     if usedSpikes:
         sta /= usedSpikes
     # currentSnippets = np.array(currentSnippets)
+    snippets = np.array(snippets)
     currentSnippets = ca.sts.SnippetArray(snippets, snippetFileNames, snippetSpikeTimes)
     print '\tComputed average from %d of %d spike times' % (usedSpikes, usedSpikes+unusedSpikes)
     return sta, currentSnippets, usedSpikes

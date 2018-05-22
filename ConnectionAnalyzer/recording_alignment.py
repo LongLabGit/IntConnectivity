@@ -1,9 +1,40 @@
+import os, os.path
 import numpy as np
 import scipy
+import neo
+import reader
 # import matplotlib.pyplot as plt
 # import quantities as pq
 
-def align_paired_recordings(pulseSignals, alignmentPeriods, pulseThreshold, minimumInterval=0):
+def align_current_traces_probe_recordings(experimentInfo, pulseThreshold, syncChannels=1):
+    '''
+    simple wrapper around paired recording alignment
+    :param experimentInfo:
+    :return: dict of alignments:
+     keys: filenames of WC recordings
+     elements: alignment of cluster spike times to WC recordings
+    '''
+    ProbeAnalogDataName = os.path.join(experimentInfo['SiProbe']['DataBasePath'], 'analoginToDigitalin.dat')
+    samplingRate = experimentInfo['SiProbe']['SamplingRate']
+    probePulseSignal = reader.read_Intan_digital_file(ProbeAnalogDataName, syncChannels, samplingRate)
+
+    WCDataFolder = experimentInfo['WC']['DataBasePath']
+    WCFileNames = [os.path.join(WCDataFolder, fname) for fname in experimentInfo['WC']['RecordingFilenames']]
+    WCSignals = reader.read_wholecell_data(WCFileNames, experimentInfo['WC']['Channels'])
+
+    alignments = []
+    for i, signal in enumerate(WCSignals):
+        pulseAlignmentWindow = experimentInfo['WC']['PulsePeriodsOnProbe'][i]
+        WCAlignmentWindow = (signal['pulseIn'].t_start.magnitude, signal['pulseIn'].t_stop.magnitude)
+        alignmentPeriods = pulseAlignmentWindow, WCAlignmentWindow
+        alignment = align_paired_recordings((probePulseSignal[0], signal['pulseIn']),
+                                                                   alignmentPeriods, pulseThreshold, minimumInterval=0.1)
+        # only align cluster spike times to current signal; WC sampling rate will stay fixed
+        alignments.append(alignment[0])
+
+    return alignments
+
+def align_paired_recordings(pulseSignals, alignmentPeriods, pulseThreshold, minimumInterval=0.0):
     '''
     takes two synchronizing signals (pulse signals) as input and calculates
     offset and scaling necessary to align pulse onsets
@@ -45,7 +76,7 @@ def align_paired_recordings(pulseSignals, alignmentPeriods, pulseThreshold, mini
 
     return alignment_0To1, alignment_1To0
 
-def detect_threshold_crossings(signal, time, threshold, upward=True):
+def detect_threshold_crossings(signal_, time, threshold, upward=True):
     '''
     takes analog signal and time and finds time points of threshold crossings
     :param signal: analog signal with pulses
@@ -54,6 +85,8 @@ def detect_threshold_crossings(signal, time, threshold, upward=True):
     :param upward: optional; if False, detects downward crossings
     :return: array of threshold crossing times
     '''
+    signal = neo.AnalogSignal(signal_, sampling_rate=signal_.sampling_rate, units=signal_.units,
+                              t_start=signal_.t_start, t_stop=signal_.t_stop)
     if not upward:
         signal *= -1.0
         threshold *= -1.0

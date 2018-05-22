@@ -5,7 +5,8 @@ addpath(genpath('../sortingQuality'));
 reboot;
 
 % params = PB072517_clusters2();
-params = PB101917();
+% params = PB101917();
+params = PB102817();
 % clusters = loadKiloSortClusters(params.SiProbeFolder, params.SiProbeSamplingInterval);
 clusters = loadKS(params.SiProbeFolder, 'dev', 'good', params.SiProbeSamplingRate);
 [clusterWaveforms, WFTimeAxes] = load_average_cluster_waveform(clusters, params, [params.SiProbeFolder, 'amplifier_cut.dat'], 10);

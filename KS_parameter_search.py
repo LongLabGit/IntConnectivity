@@ -8,11 +8,14 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import os, os.path, sys
+import os, os.path, sys, ast
 import glob
 import elephant as eph
 import neo
+import quantities as pq
 import ClusterProcessing as clust
+import ConnectionAnalyzer as ca
+import spike_triggered_currents as STC
 
 ClusteringSrcFolder = 'E:\\User\\project_src\\physiology\\Clustering'
 # channelMapAllToShank4 = {56: 0, 58: 1, 63: 2, 61: 3, 59: 4, 44: 5, 46: 6, 40: 7}
@@ -46,7 +49,7 @@ def parse_KS_output_set(refPath, refClusterID, refTemplateName, baseFolder):
 
     # folders = ['C:\\Users\\User\\Desktop\\Continuous_400_cut\\32_filters\\Th_6_11_11_Lam_10_30_30']
     # folders = ['C:\\Users\\User\\Desktop\\Continuous_400_cut\\scale_1.00\\Th_6_13_13_Lam_10_30_30']
-    maxPrecision = 3
+    # maxPrecision = 3
     allTemplateSimilarities = []
     for KSOutputFolder in folders:
         # if not os.path.isdir(KSOutputFolder):
@@ -66,7 +69,8 @@ def parse_KS_output_set(refPath, refClusterID, refTemplateName, baseFolder):
         for clusterID in clusters:
             cluster = clusters[clusterID]
             templateSimilarity = compute_template_similarity(cluster, refTemplate, refClusterMaxChannel)
-            spikeTrainDistance = compute_spiketrain_distance(cluster, refCluster)
+            # spikeTrainDistance = compute_spiketrain_distance(cluster, refCluster)
+            spikeTrainDistance = -1.0
             # dt = []
             # FP, FN, totalSpikes = compute_cluster_differences(cluster, refCluster, maxPrecision, dt)
             # nrMatchedSpikes = totalSpikes - FN
@@ -80,7 +84,9 @@ def parse_KS_output_set(refPath, refClusterID, refTemplateName, baseFolder):
         summaryData[KSOutputFolder]['spikeTrainMatch'] = np.array(summaryData[KSOutputFolder]['spikeTrainMatch'])
 
     plt.figure(1)
-    plt.hist(allTemplateSimilarities)
+    bins = np.arange(np.min(allTemplateSimilarities), np.max(allTemplateSimilarities) + 5.0, 5.0)
+    hist, _ = np.histogram(allTemplateSimilarities, bins)
+    plt.bar(bins[:-1], hist, width=5.0)
     plt.show()
 
     # sort clusters from each KS output by template/spike train similarity
@@ -165,24 +171,8 @@ def parse_KS_parameter_summary_files(summaryFolder, baseFolder, refPath):
     :return:
     '''
     # load all csv summary files
-    summaryData = {}
     files = glob.glob(os.path.join(summaryFolder, '*_summary.csv'))
-    for file in files:
-        with open(file, 'r') as summaryFile:
-            parameterName = os.path.split(file)[-1]
-            parameterName = parameterName[:-12] # drop _summary.csv extension
-            summaryData[parameterName] = {}
-            for line in summaryFile:
-                splitLine = line.split('\t')
-                try:
-                    clusterID = int(splitLine[0])
-                    summaryData[parameterName][clusterID] = {}
-                    templateSimilarity = float(splitLine[1])
-                    spikeTrainDistance = float(splitLine[2])
-                    summaryData[parameterName][clusterID]['templateMatch'] = templateSimilarity
-                    summaryData[parameterName][clusterID]['spikeTrainMatch'] = spikeTrainDistance
-                except:
-                    continue
+    summaryData = load_KS_cluster_properties_summary(files)
 
     # look at summary statistics across all parameter sets
     templateSimilarities = []
@@ -202,22 +192,22 @@ def parse_KS_parameter_summary_files(summaryFolder, baseFolder, refPath):
         minTemplateSimilarities.append(np.min(paramSimilarities))
         minSpikeTrainDistances.append(np.min(paramDistances))
 
-    # plt.figure(1)
-    # plt.subplot(2,2,1)
-    # similarityBins = np.arange(0.0, np.max(templateSimilarities) + 15.0, 15.0)
-    # plt.hist(templateSimilarities, similarityBins)
-    # plt.xlabel('template similarities')
-    # plt.subplot(2,2,2)
-    # plt.hist(spikeTrainDistances)
-    # plt.xlabel('spike train dist.')
-    # plt.subplot(2,2,3)
-    # plt.hist(minTemplateSimilarities)
-    # plt.xlabel('min. template similarities')
-    # plt.subplot(2,2,4)
-    # plt.hist(minSpikeTrainDistances)
-    # plt.xlabel('min. spike train dist.')
-    # # plt.savefig(os.path.join(summaryFolder, 'summary_histograms.pdf'))
-    # # plt.show()
+    plt.figure(1)
+    plt.subplot(2,2,1)
+    similarityBins = np.arange(0.0, np.max(templateSimilarities) + 5.0, 5.0)
+    plt.hist(templateSimilarities, similarityBins)
+    plt.xlabel('template similarities')
+    plt.subplot(2,2,2)
+    plt.hist(spikeTrainDistances)
+    plt.xlabel('spike train dist.')
+    plt.subplot(2,2,3)
+    plt.hist(minTemplateSimilarities)
+    plt.xlabel('min. template similarities')
+    plt.subplot(2,2,4)
+    plt.hist(minSpikeTrainDistances)
+    plt.xlabel('min. spike train dist.')
+    plt.savefig(os.path.join(summaryFolder, 'summary_histograms.pdf'))
+    plt.show()
 
     folders_ = glob.glob(os.path.join(baseFolder, '*'))
     folders = []
@@ -227,8 +217,18 @@ def parse_KS_parameter_summary_files(summaryFolder, baseFolder, refPath):
         else:
             folders.append(folder)
 
+    templateScaleIndex = baseFolder.find('scale_')
+    templateScale = float(baseFolder[templateScaleIndex + 6:templateScaleIndex + 10])
     # 979 parameters
-    templateThreshold979 = 200.0
+    # for template similarity using only max channel:
+    # templateThreshold979 = 200.0*templateScale
+    # for template similarity using all channels, scale 1.0-0.6:
+    templateThreshold979 = 40.0
+    # for template similarity using all channels, scale 0.4:
+    # templateThreshold979 = 25.0
+    # for template similarity using all channels, scale 0.2-0.1:
+    # templateThreshold979 = 20.0
+    print 'Template threshold = %.2f' % templateThreshold979
     # refClusterID = 979
     refClusterID = 27 # 6 13 13 / 10 30 30
 
@@ -240,7 +240,8 @@ def parse_KS_parameter_summary_files(summaryFolder, baseFolder, refPath):
     refCluster = load_reference_cluster(refPath, refClusterID)
     maxSpikeTime = refCluster.spiketrains[0].t_stop
     figureCount = 0
-    for maxPrecision in range(1, 5):
+    for maxPrecision in range(2, 5):
+        print 'Evaluating spike time recovery at a precision of %d samples' % maxPrecision
         mergedClusters = {}
         mergedClusterIDs ={}
         clusterDifferences = {}
@@ -273,8 +274,10 @@ def parse_KS_parameter_summary_files(summaryFolder, baseFolder, refPath):
                 # END HACK for 845
                 mergedClusters[param] = mergedCluster
                 dt = []
-                clusterDifferences[param] = compute_cluster_differences(mergedCluster, refCluster, maxPrecision, dt)
+                FP, FN, totalSpikes  = compute_cluster_differences(mergedCluster, refCluster, maxPrecision, dt)
+                clusterDifferences[param] = FP, FN, totalSpikes
                 timingDifferences[param] = dt
+                print '\tFP = %d -- FN = %d -- Correct = %d' % (FP, FN, totalSpikes - FN)
                 # plt.figure(figureCount)
                 # bins = np.arange(-2.25e-4, 2.25e-4, 5e-5)
                 # plt.hist(dt, bins)
@@ -287,7 +290,7 @@ def parse_KS_parameter_summary_files(summaryFolder, baseFolder, refPath):
         suffix = 'cluster_reference_differences_maxPrecision_' + str(maxPrecision - 1) + '.csv'
         outName = os.path.join(summaryFolder, suffix)
         with open(outName, 'w') as outFile:
-            header = 'Th1\tTh2/3\tLambda1\tLambda2/3\tNr. merged clusters\tFP\tFN\tTotal ref. spikes\n'
+            header = 'Th1\tTh2/3\tLambda1\tLambda2/3\tNr. merged clusters\tFP\tFN\tRecovered spikes\tTotal ref. spikes\n'
             outFile.write(header)
             params = mergedClusterIDs.keys()
             params.sort()
@@ -311,11 +314,97 @@ def parse_KS_parameter_summary_files(summaryFolder, baseFolder, refPath):
                     line += '\t'
                     line += str(differences[1])
                     line += '\t'
+                    line += str(differences[2] - differences[1])
+                    line += '\t'
                     line += str(differences[2])
                     line += '\n'
                 else:
-                    line += 'N/A\tN/A\tN/A\n'
+                    line += 'N/A\tN/A\tN/A\tN/A\n'
                 outFile.write(line)
+
+def evaluate_KS_parameters_IPSC(experimentInfoName, baseFolder, summaryFolder, scaleSimilarityThreshold):
+    '''
+    evaluate IPSCs of different KS parameter clusters
+    to allow comparison with ground-truth IPSC (avg., distribution, ...)
+    :return:
+    '''
+    # load/filter WC recording
+    with open(experimentInfoName, 'r') as dataFile:
+        experimentInfo = ast.literal_eval(dataFile.read())
+
+    # constants for calculating spike-triggered stuff
+    alignedWindow = np.array((-5.0, 10.0))*pq.ms
+    maxBegin = 0.3*pq.ms
+    maxWindow = np.array((1.2, 2.54))*pq.ms
+    alignedWindowSamples_ = (alignedWindow*experimentInfo['WC']['SamplingRate']*pq.Hz).simplified
+    maxBeginSamples_ = (maxBegin*experimentInfo['WC']['SamplingRate']*pq.Hz).simplified - alignedWindowSamples_[0]
+    maxWindowSamples_ = (maxWindow*experimentInfo['WC']['SamplingRate']*pq.Hz).simplified - alignedWindowSamples_[0]
+    maxBeginSamples = int(maxBeginSamples_ + 0.5)
+    maxWindowSamples = (int(maxWindowSamples_[0] + 0.5), int(maxWindowSamples_[1] + 0.5))
+
+    WCDataFolder = experimentInfo['WC']['DataBasePath']
+    WCFileNames = [os.path.join(WCDataFolder, fname) for fname in experimentInfo['WC']['RecordingFilenames']]
+    WCWindows = experimentInfo['WC']['RecordingPeriods']
+    WCSignals = ca.reader.read_wholecell_data(WCFileNames, experimentInfo['WC']['Channels'])
+    WCFilteredSignals = []
+    for signal in WCSignals:
+        WCFilteredSignals.append(STC.filter_current_trace(signal['current'].flatten(), experimentInfo))
+
+    # compute alignment of spike times to WC recording
+    alignments = STC.align_current_traces_probe_recordings(experimentInfo)
+
+    # load all csv summary files
+    files = glob.glob(os.path.join(summaryFolder, '*_summary.csv'))
+    summaryData = load_KS_cluster_properties_summary(files)
+
+    folders_ = glob.glob(os.path.join(baseFolder, '*'))
+    folders = []
+    for folder in folders_:
+        if not os.path.isdir(folder) or not 'Th' in folder or not 'Lam' in folder:
+            continue
+        else:
+            folders.append(folder)
+
+    for param in summaryData:
+    # for param in ['Th_6_13_13_Lam_10_30_30']:
+        KSOutputFolder = ''
+        for folder in folders:
+            if param in folder:
+                KSOutputFolder = folder
+                break
+        print 'Computing spike time-aligned traces for KS output %s' % KSOutputFolder
+        # load clusters for parameter set
+        clusterGroup = clust.ClusterGroup(clust.reader.read_KS_clusters_unsorted(KSOutputFolder, ClusteringSrcFolder, 'dev', 20000.0))
+        currentMergeClusterIDs = []
+        # select clusters below similarity threshold
+        for clusterID in summaryData[param]:
+            templateSimilarity = summaryData[param][clusterID]['templateMatch']
+            if templateSimilarity < scaleSimilarityThreshold:
+                currentMergeClusterIDs.append(clusterID)
+        if len(currentMergeClusterIDs):
+            mergedCluster = clusterGroup.merge_clusters_with_duplicates(currentMergeClusterIDs, 6.0e-4)
+            # compute ST currents and ST IPSC amplitudes
+            STA, STAlignedSnippets, nrSpikes = STC.compute_ST_traces_average(mergedCluster, WCFilteredSignals, experimentInfo['WC']['RecordingFilenames'],
+                                                                   WCWindows, alignments, alignedWindow)
+            # compute and store amplitudes (distribution?) for each parameter set
+            if nrSpikes:
+                STA_SE = np.std(STAlignedSnippets.snippets, axis=0)/np.sqrt(nrSpikes)
+                beginValues = STAlignedSnippets.snippets[:, maxBeginSamples]
+                maxValueRanges = STAlignedSnippets.snippets[:, maxWindowSamples[0]:maxWindowSamples[1]]
+                maxValues = np.max(maxValueRanges, axis=1)
+                amplitudes = maxValues - beginValues
+            else:
+                STA_SE = np.zeros(STA.shape)
+                amplitudes = np.array([])
+            suffix = param + '_STAmplitudes'
+            amplitudesOutName = os.path.join(summaryFolder, suffix)
+            np.save(amplitudesOutName, amplitudes)
+            suffix = param + '_STA'
+            STAOutName = os.path.join(summaryFolder, suffix)
+            np.save(STAOutName, STA)
+            suffix = param + '_STA_SE'
+            STASEOutName = os.path.join(summaryFolder, suffix)
+            np.save(STASEOutName, STA_SE)
 
 def compute_template_similarity(cluster, refTemplate, refMaxChannel):
     '''
@@ -325,13 +414,20 @@ def compute_template_similarity(cluster, refTemplate, refMaxChannel):
     :param refTemplate: waveform of reference cluster
     :return: similarity
     '''
-    comparisonWaveForm = cluster.template[refMaxChannel]
-    diff = comparisonWaveForm - refTemplate
-    # plt.figure()
-    # plt.plot(refTemplate)
-    # plt.plot(comparisonWaveForm)
-    # plt.show()
-    return np.sqrt(np.dot(diff, diff)/len(diff))
+    # comparisonWaveForm = cluster.template[refMaxChannel]
+    # diff = comparisonWaveForm - refTemplate
+    comparisonWaveForm = cluster.template
+    diff = comparisonWaveForm.flatten() - refTemplate.flatten()
+    RMSE = np.sqrt(np.dot(diff, diff)/len(diff))
+    # if 20.0 < RMSE < 75.0:
+    # if RMSE < 75.0:
+    #     plt.figure(cluster.clusterID)
+    #     plt.plot(refTemplate.flatten())
+    #     plt.plot(comparisonWaveForm.flatten())
+    #     titleStr = 'Cluster %d - RMSE = %.1f' % (cluster.clusterID, RMSE)
+    #     plt.title(titleStr)
+    #     plt.show()
+    return RMSE
 
 def compute_spiketrain_distance(cluster, refCluster):
     '''
@@ -364,24 +460,28 @@ def compute_cluster_differences(cluster, refCluster, maxPrecision, timingDiffere
     refClusterSpikes = list(refCluster.spiketrains[0].magnitude)
     FN = 0
     totalSpikes = len(refClusterSpikes)
+    print 'Comparing %d spikes in cluster with %d spikes of reference cluster' % (len(clusterSpikes), totalSpikes)
     for tRef in refClusterSpikes:
         foundCorrespondingSpike = 0
-        for t in clusterSpikes:
+        for n, t in enumerate(clusterSpikes):
+            dSample = int(round(samplingFrequency*(t - tRef)))
             for i in range(maxPrecision):
-                dSample = int(round(samplingFrequency*(t - tRef)))
                 # if abs(t - tRef) <= i*samplingInterval:
                 if abs(dSample) <= i:
                     # timingDifferences.append(t - tRef)
                     timingDifferences.append(dSample)
                     foundCorrespondingSpike = 1
-                    clusterSpikes.remove(t)
+                    # clusterSpikes.remove(t)
+                    clusterSpikes[n] = -1.0e6
                 if foundCorrespondingSpike:
                     break
             if foundCorrespondingSpike:
                 break
         if not foundCorrespondingSpike:
             FN += 1
-    FP = len(clusterSpikes)
+    clusterSpikes = np.array(clusterSpikes)
+    remainingClusterSpikes = clusterSpikes[np.where(clusterSpikes > -1.0e6)]
+    FP = len(remainingClusterSpikes)
 
     return FP, FN, totalSpikes
 
@@ -408,6 +508,32 @@ def load_reference_cluster_template(path, clusterName):
     '''
     return np.load(os.path.join(path, clusterName))
 
+def load_KS_cluster_properties_summary(files):
+    '''
+    Loads summary csv files written by parse_KS_output_set
+    :param files:
+    :return:
+    '''
+    summaryData = {}
+    for file in files:
+        with open(file, 'r') as summaryFile:
+            parameterName = os.path.split(file)[-1]
+            parameterName = parameterName[:-12] # drop _summary.csv extension
+            summaryData[parameterName] = {}
+            for line in summaryFile:
+                splitLine = line.split('\t')
+                try:
+                    clusterID = int(splitLine[0])
+                    summaryData[parameterName][clusterID] = {}
+                    templateSimilarity = float(splitLine[1])
+                    spikeTrainDistance = float(splitLine[2])
+                    summaryData[parameterName][clusterID]['templateMatch'] = templateSimilarity
+                    summaryData[parameterName][clusterID]['spikeTrainMatch'] = spikeTrainDistance
+                except:
+                    continue
+
+    return summaryData
+
 if __name__ == '__main__':
     if len(sys.argv) == 5:
         refPath = sys.argv[1]
@@ -415,6 +541,11 @@ if __name__ == '__main__':
         refClusterName = sys.argv[3]
         baseFolder = sys.argv[4]
         parse_KS_output_set(refPath, refClusterID, refClusterName, baseFolder)
+        # experimentInfoName = sys.argv[1]
+        # baseFolder = sys.argv[2]
+        # summaryFolder = sys.argv[3]
+        # threshold = float(sys.argv[4])
+        # evaluate_KS_parameters_IPSC(experimentInfoName, baseFolder, summaryFolder, threshold)
     elif len(sys.argv) == 4:
         summaryFolder = sys.argv[1]
         baseFolder = sys.argv[2]

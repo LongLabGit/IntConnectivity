@@ -13,7 +13,7 @@ import ClusterProcessing as clust
 
 ClusteringSrcFolder = 'E:\\User\\project_src\\physiology\\Clustering'
 
-def generate_ground_truth(experimentInfoName, referenceFolder, referenceClusterID, scale):
+def generate_ground_truth(experimentInfoName, groundTruthFolder, referenceFolder, referenceClusterID, scale):
     '''
 
     :param experimentInfoName:
@@ -70,51 +70,57 @@ def generate_ground_truth(experimentInfoName, referenceFolder, referenceClusterI
     spikeOffset = 40 - templateOffset # sample number in template used for spike time
     targetChannels = targetTemplate_.keys()
     targetTemplate = np.zeros((nNewChannels, len(targetTemplate_[targetChannels[0]][templateOffset:])))
+    targetTemplatePadded = np.zeros((nNewChannels, len(targetTemplate_[targetChannels[0]])))
     maxAmpChannelNewTemplate = None
     for i, targetChannel in enumerate(spatialChannelOrder):
         targetTemplate[i,:] = targetTemplate_[targetChannel][templateOffset:]
+        targetTemplatePadded[i,:] = targetTemplate_[targetChannel][:]
         if targetChannel == 48:
             maxAmpChannelNewTemplate = i
-    targetTemplate *= scale*magicAmplitude*magicNumber
     # store this template (incl. KS offset) on its max channel to find it again in the KS output...
-    pastedTemplate = scale*targetTemplate_[targetChannel][:]
-    pastedTemplateName = 'referenceTemplate_scale_%.2f.npy' % scale
+    # pastedTemplate = scale*targetTemplate_[targetChannel][:]
+    # pastedTemplateName = 'referenceTemplate_scale_%.2f.npy' % scale
+    pastedTemplate = scale*targetTemplatePadded[:, :]
+    pastedTemplateName = 'referenceTemplate_allChannels_scale_%.2f.npy' % scale
     np.save(os.path.join(referenceFolder, pastedTemplateName), pastedTemplate)
+    # scale to correct amplitude in binary file
+    targetTemplate *= scale*magicAmplitude*magicNumber
 
-    # dtype = np.dtype('int16')
-    # newDatName = 'C:\\Users\\User\\Desktop\\Continuous_400_cut\\amplifier_cut_scale_%.2f.dat' % scale
-    # oldDatSamples = originalDatSize/(dtype.itemsize*nChannels)
-    # # write hybrid ground truth signal: load file and only add new spike times
-    # originalData = np.memmap(originalDatName, dtype=dtype.name, mode='r', shape=(nChannels, oldDatSamples), order='F')
-    #
-    # print 'Calculating effective SNR...'
-    # maxAmpChannelOriginal = 48
-    # meanAmp = np.mean(refTemplateAmplitudes)
-    # maxTemplateAmp = abs(np.min(targetTemplate[maxAmpChannelNewTemplate,:]))
-    # medianMaxChannel = np.median(originalData[maxAmpChannelOriginal,:])
-    # mad = np.median(np.abs(originalData[maxAmpChannelOriginal,:] - medianMaxChannel))
-    # SNREstimate = meanAmp*maxTemplateAmp/(mad*1.4862)
-    # print 'SNR = %.2f' % SNREstimate
-    # SNROutName = 'C:\\Users\\User\\Desktop\\Continuous_400_cut\\SNR_scale_%.2f.txt' % scale
-    # with open(SNROutName, 'w') as SNRFile:
-    #     line = 'SNR estimate = '
-    #     line += str(SNREstimate)
-    #     SNRFile.write(line)
-    #
-    # print 'Copying original data into new dat file %s' % newDatName
-    # newData = np.memmap(newDatName, dtype=dtype.name, mode='w+', shape=(nNewChannels, oldDatSamples), order='F')
-    # newData[:,:] = originalData[spatialChannelOrder,:]
-    # print 'Writing %d scaled spikes into new dat file %s' % (len(refSpikeTimes), newDatName)
-    # for n, newSample in enumerate(refSpikeSamples):
-    #     startSample = newSample - spikeOffset
-    #     endSample = startSample + templateSamples
-    #     spikeChunk = range(startSample, endSample)
-    #     amp = refTemplateAmplitudes[n]
-    #     wf = np.array(amp*targetTemplate, dtype=dtype.name)
-    #     newData[:,spikeChunk] += wf
-    # newData.flush()
-    # del newData
-    # del originalData
+    dtype = np.dtype('int16')
+    newDatNameSuffix = 'amplifier_cut_scale_%.2f.dat' % scale
+    newDatName = os.path.join(groundTruthFolder, newDatNameSuffix)
+    oldDatSamples = originalDatSize/(dtype.itemsize*nChannels)
+    # write hybrid ground truth signal: load file and only add new spike times
+    originalData = np.memmap(originalDatName, dtype=dtype.name, mode='r', shape=(nChannels, oldDatSamples), order='F')
+
+    print 'Calculating effective SNR...'
+    maxAmpChannelOriginal = 48
+    meanAmp = np.mean(refTemplateAmplitudes)
+    maxTemplateAmp = abs(np.min(targetTemplate[maxAmpChannelNewTemplate,:]))
+    medianMaxChannel = np.median(originalData[maxAmpChannelOriginal,:])
+    mad = np.median(np.abs(originalData[maxAmpChannelOriginal,:] - medianMaxChannel))
+    SNREstimate = meanAmp*maxTemplateAmp/(mad*1.4862)
+    print 'SNR = %.2f' % SNREstimate
+    SNROutName = 'C:\\Users\\User\\Desktop\\Continuous_400_cut\\SNR_scale_%.2f.txt' % scale
+    with open(SNROutName, 'w') as SNRFile:
+        line = 'SNR estimate = '
+        line += str(SNREstimate)
+        SNRFile.write(line)
+
+    print 'Copying original data into new dat file %s' % newDatName
+    newData = np.memmap(newDatName, dtype=dtype.name, mode='w+', shape=(nNewChannels, oldDatSamples), order='F')
+    newData[:,:] = originalData[spatialChannelOrder,:]
+    print 'Writing %d scaled spikes into new dat file %s' % (len(refSpikeTimes), newDatName)
+    for n, newSample in enumerate(refSpikeSamples):
+        startSample = newSample - spikeOffset
+        endSample = startSample + templateSamples
+        spikeChunk = range(startSample, endSample)
+        amp = refTemplateAmplitudes[n]
+        wf = np.array(amp*targetTemplate, dtype=dtype.name)
+        newData[:,spikeChunk] += wf
+    newData.flush()
+    del newData
+    del originalData
 
 
 def load_reference_cluster_amplitudes(path, clusterID):
