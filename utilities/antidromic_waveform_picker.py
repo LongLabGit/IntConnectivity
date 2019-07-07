@@ -1,0 +1,3 @@
+
+class AntidromicPicker(object):
+    pass

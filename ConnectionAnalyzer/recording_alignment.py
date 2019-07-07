@@ -14,7 +14,9 @@ def align_current_traces_probe_recordings(experimentInfo, pulseThreshold, syncCh
      keys: filenames of WC recordings
      elements: alignment of cluster spike times to WC recordings
     '''
-    ProbeAnalogDataName = os.path.join(experimentInfo['SiProbe']['DataBasePath'], 'analoginToDigitalin.dat')
+    # ProbeAnalogDataName = os.path.join(experimentInfo['SiProbe']['DataBasePath'], 'analoginToDigitalin.dat')
+    # ProbeAnalogDataName = os.path.join(experimentInfo['SiProbe']['DataBasePath'], 'digitalin_cut.dat')
+    ProbeAnalogDataName = os.path.join(experimentInfo['SiProbe']['DataBasePath'], experimentInfo['SiProbe']['PulseFileName'])
     samplingRate = experimentInfo['SiProbe']['SamplingRate']
     probePulseSignal = reader.read_Intan_digital_file(ProbeAnalogDataName, syncChannels, samplingRate)
 

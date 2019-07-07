@@ -25,22 +25,24 @@ class Snippet(object):
     with attached information about original signal
     and time point within original signal
     '''
-    def __init__(self, signal, originalSignalName, originalSignalTime):
+    def __init__(self, signal, originalSignalName, originalSignalTime, spike_time):
         self.signal = signal
-        self.signalName = originalSignalName
-        self.snippetTimePoint = originalSignalTime
-        self.snippetStartTime = self.snippetTimePoint + self.signal.t_start
-        self.snippetStopTime = self.snippetTimePoint + self.signal.t_stop
+        self.signal_name = originalSignalName
+        self.snippet_timepoint = originalSignalTime
+        self.snippet_t_start = self.snippet_timepoint + self.signal.t_start
+        self.snippet_t_stop = self.snippet_timepoint + self.signal.t_stop
+        self.snippet_spike_time = spike_time
 
 class SnippetArray(object):
     '''
     contains array of individual spike time-aligned signals,
-    as well as filenames and spike times within these files
+    as well as filenames and spike times within these files and unaligned spike times
     '''
-    def __init__(self, snippets, signalNames, snippetSpikeTimes):
+    def __init__(self, snippets, signalNames, snippet_timepoints, spike_times):
         self.snippets = snippets
-        self.signalNames = np.array(signalNames)
-        self.snippetSpikeTimes = np.array(snippetSpikeTimes)
+        self.signal_names = np.array(signalNames)
+        self.snippet_timepoints = np.array(snippet_timepoints)
+        self.snippet_spike_times = spike_times
 
     # def compute_average(self, files=None, times=None):
     #     '''

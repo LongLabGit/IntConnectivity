@@ -49,6 +49,9 @@ class ClusterGroup(object):
         :param ISIThreshold: spikes with ISIs less than threshold will be removed
         :return: N/A
         '''
+        # TODO: if we have an ISI below threshold, do we have to remove BOTH spikes?
+        # if duplicate spike times due to cluster misalignment, then no...
+        # if contamination then yes (we do not know which spike is `correct`)
         spikeTimes = self.clusters[clusterID].spiketrains[0].times.magnitude
         dt = np.zeros(len(spikeTimes))
         dt[:-1] = np.diff(spikeTimes)

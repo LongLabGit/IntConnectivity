@@ -2,20 +2,20 @@ addpath('../Clustering/IO');
 addpath('../common');
 reboot;
 % F='S:\Robert\INT_connectivity\SiProbe\PracticeBird_061917\SiProbe\Continuous_500_170619_141301\';
-F='Z:\Robert\INT_connectivity\SiProbe\ProbeBird_111417\SiProbe\Continuous_440_171114_151812\';
+F='F:\sorting\ProbeBird_050219\';
 % F='S:\Vigi\Datasets\SiliconProbe\Masmanadis\ucla2\';
 ampCutFilename = 'amplifier_cut.dat';
 analogCutFilename = 'analogin_cut.dat';
 digitalCutFilename = 'digitalin_cut.dat';
 maxPiece=10*60;%analyze X seconds at a time. here 10 minutes. use for RAM control
-samplingRate = 20000; % in Hz
 %% Auto detect imaging noise
 % read_Intan_RHD2000_file([F,'info.rhd'])
 read_Intan_RHD2000_file_v2_01([F,'info.rhd'])
+samplingRate = frequency_parameters.amplifier_sample_rate; % in Hz
 fileinfo = dir([F,'amplifier.dat']);
 % analogfileinfo = dir([F,'analogin.dat']);
 % analogfileinfo = dir([F,'analoginToDigitalin.dat']);
-total_duration = (fileinfo.bytes/(64 * 2))/samplingRate; % int16 = 2 bytes, samples-->seconds
+total_duration = (fileinfo.bytes/(length(amplifier_channels) * 2))/samplingRate; % int16 = 2 bytes, samples-->seconds
 stop=0;indCut=0;
 d = designfilt('bandpassfir', ...       % Response type
        'FilterOrder',300, ...            % Filter order
@@ -35,7 +35,7 @@ while stop<total_duration%
 % while length(ttlPulseTimes) == 0
     start=indCut*maxPiece;
     stop=min(total_duration,start+maxPiece);
-    v=LoadBinary([F,'amplifier.dat'],'nChannels',64,'channels',1,...
+    v=LoadBinary([F,'amplifier.dat'], 'frequency', samplingRate, 'nChannels',length(amplifier_channels),'channels',1,...
         'start',start,'duration',stop-start);%SWAP TO ALL SHANKS?
     v=double(v)*.195;
     v2=filtfilt(d,v);
@@ -44,10 +44,11 @@ while stop<total_duration%
     [yupper,ylower] = envelope(v2,1e4,'rms');
     t=(start+((1:length(v))/samplingRate))/60;
 %     figure(indCut);clf; hold on;plot(t,v2);plot(t,yupper);drawnow;
-    yA=[yA;decimate(yupper,2000)];%.1 hZ resolution
-    tA=[tA,downsample(t,2000)];
+    yA=[yA;decimate(yupper,samplingRate/10)];%.1 hZ resolution
+    tA=[tA,downsample(t,samplingRate/10)];
 end
 save([F,'Scanning_Times.mat'],'tA','yA');
+
 % [SamplingInterval, AnalogVoltage] = loadAnalogSignalIntan(F, 'analogin.dat');
 % ttlPulseTimes = detectThresholdCrossings((1:length(AnalogVoltage))/samplingRate, AnalogVoltage, 1.0);
 figure;
@@ -100,7 +101,7 @@ end
 % line(xlim,thresh*[1,1],'LineStyle',':')
 %% apply cutting
 fileinfo = dir([F,'amplifier.dat']);
-tot_samples = (fileinfo.bytes/(64 * 2)); % int16 = 2 bytes, samples-->seconds
+tot_samples = (fileinfo.bytes/(length(amplifier_channels) * 2)); % int16 = 2 bytes, samples-->seconds
 edgeLeft=[0;manualNoisePeriods(:,2)];
 edgeRight=[manualNoisePeriods(:,1);tot_samples];
 % edgeLeft=0;
@@ -117,7 +118,7 @@ for e = 1:length(edgeLeft)
     while right < stop
         left = start+indCut*maxPiece*samplingRate;
         right = min(stop,left+maxPiece*samplingRate);
-        dataChunk = LoadBinary([F,'amplifier.dat'],'nChannels',64,'channels',1:64,...
+        dataChunk = LoadBinary([F,'amplifier.dat'],'frequency',samplingRate,'nChannels',length(amplifier_channels),'channels',1:length(amplifier_channels),...
             'start',left/samplingRate,'duration',(right-left)/samplingRate);%SWAP TO ALL SHANKS?
         fwrite(ampFileCut, dataChunk', 'int16');
         indCut=indCut+1;
@@ -136,7 +137,7 @@ for e = 1:length(edgeLeft)
     while right < stop
         left = start+indCut*maxPiece*samplingRate;
         right = min(stop,left+maxPiece*samplingRate);
-        dataChunk = LoadBinary([F,'analogin.dat'],'nChannels',1,'channels',1,'start',left/samplingRate,'duration',(right-left)/samplingRate);
+        dataChunk = LoadBinary([F,'analogin.dat'],'frequency',samplingRate,'nChannels',1,'channels',1,'start',left/samplingRate,'duration',(right-left)/samplingRate);
         fwrite(analogFileCut, dataChunk', 'int16');
         indCut=indCut+1;
     end
@@ -154,7 +155,7 @@ for e = 1:length(edgeLeft)
     while right < stop
         left = start+indCut*maxPiece*samplingRate;
         right = min(stop,left+maxPiece*samplingRate);
-        dataChunk = LoadBinary([F,'digitalin.dat'],'nChannels',1,'channels',1,'start',left/samplingRate,'duration',(right-left)/samplingRate);
+        dataChunk = LoadBinary([F,'digitalin.dat'],'frequency',samplingRate,'nChannels',1,'channels',1,'start',left/samplingRate,'duration',(right-left)/samplingRate);
         fwrite(digitalFileCut, dataChunk', 'int16');
         indCut=indCut+1;
     end
