@@ -227,7 +227,7 @@ def _detect_stimulus_times(recording, t_start, t_stop, fs):
         chunk_stop = min(stop, chunk_start + chunk_duration)
         chunk = np.mean(recording[:, chunk_start:chunk_stop], axis=0)
         # chunk = recording[0, chunk_start:chunk_stop]
-        peaks, properties = scipy.signal.find_peaks(chunk, height=5e3, distance=int(0.9*fs))
+        peaks, properties = scipy.signal.find_peaks(chunk, height=1e3, distance=int(0.9*fs))
         stimulus_times.extend(peaks + chunk_start)
         plt.plot(chunk, 'k-', linewidth=0.5)
         plt.plot(peaks, chunk[peaks], 'ro')
@@ -287,7 +287,7 @@ def _save_stimulus_aligned_waveforms_crossings(crossing_info, stimulus_indices, 
     # stimulus_amplitude[45:92] = 100
     # stimulus_amplitude[92:147] = 200
 
-    song_data_folder = crossing_info['ContinuousRecording']['DataBasePath']
+    song_data_folder = crossing_info['ContinuousRecording']['ClusterBasePath']
     channel_shank_map = np.load(os.path.join(song_data_folder, 'channel_shank_map.npy'))
 
     intan_constant = 0.195
@@ -571,6 +571,11 @@ def stimulus_aligned_recording(crossing_info_name):
             start_index = block_end_indices[i]
             stimulus_amplitude[start_index:] = stimulus_levels_[i + 1]
 
+    # save stimulus indices and amplitudes
+    stim_indices_name = os.path.join(crossing_info['Antidromic']['CrossingBasePath'], 'stimulus_indices.npy')
+    stim_amplitude_name = os.path.join(crossing_info['Antidromic']['CrossingBasePath'], 'stimulus_amplitudes.npy')
+    np.save(stim_indices_name, stimulus_indices)
+    np.save(stim_amplitude_name, stimulus_amplitude)
     # first generate stimulus-aligned averages and detect crossings
     stimulus_levels = np.unique(stimulus_levels_)
     _save_stimulus_aligned_waveforms_crossings(crossing_info, stimulus_indices, stimulus_amplitude, stimulus_levels)
@@ -774,8 +779,10 @@ def manual_crossing_selection(crossing_info_name):
             if stim_level not in stim_levels:
                 print 'Stim level %d not available' % stim_level
                 stim_level = None
-        except TypeError:
+        except ValueError:
             print 'Please use an integer number (microAmps)'
+    print 'Shanks:'
+    print shanks
     shank = None
     while shank is None:
         try:
@@ -783,12 +790,13 @@ def manual_crossing_selection(crossing_info_name):
             if shank not in shanks:
                 print 'Shank %d not available' % shank
                 shank = None
-        except TypeError:
+        except ValueError:
             print 'Please use an integer number'
 
     stim_aligned_waveform = np.load(os.path.join(crossing_info['Antidromic']['CrossingBasePath'],
                                                  crossing_info['Antidromic']['ShankWaveforms'][stim_level][shank]))
-    ap = utils.AntidromicPicker(stim_aligned_waveform, crossing_info)
+    ap = utils.AntidromicPicker(stim_aligned_waveform, crossing_info, stim_level, shank)
+    ap.pick_antidromic_units()
 
 
 if __name__ == '__main__':
@@ -796,9 +804,10 @@ if __name__ == '__main__':
         view_stimulus_aligned_recording()
     if len(sys.argv) == 2:
         crossing_info_name = sys.argv[1]
-        stimulus_aligned_recording(crossing_info_name)
+        # stimulus_aligned_recording(crossing_info_name)
+        manual_crossing_selection(crossing_info_name)
         # threshold_crossing_waveform_visualization(crossing_info_name)
-        crossing_shank_waveform_variability_visualization(crossing_info_name)
+        # crossing_shank_waveform_variability_visualization(crossing_info_name)
 
 
 
