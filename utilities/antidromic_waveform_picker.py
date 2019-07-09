@@ -47,6 +47,7 @@ class AntidromicPicker(object):
         self._threshold = []
         self._var_time_axis = None
         self._var_waveforms = None
+        self._var_time_index = None
         self._good_var_waveforms = None
 
         pid = os.getpid()
@@ -63,8 +64,8 @@ class AntidromicPicker(object):
         connect to all the events we need
         keyboard press 'a' to define new crossing
         click on channel at specific time to add
-        keyboard press 'u' to undo (remove last crossing)
-        keyboard press 's' to save
+        keyboard press 't' to add 2 threshold window values
+        keyboard press 'w' to save
         keyboard press 'q' to quit
         """
         self.cidpress = self.ax_wf_var.figure.canvas.mpl_connect('button_press_event', self.on_press)
@@ -135,9 +136,7 @@ class AntidromicPicker(object):
 
     def _add_antidromic_waveform(self, event):
         # get channel id and time from event xdata/ydata
-        print 'Picked something!'
         if isinstance(event.artist, Line2D):
-            print 'This something is a line...'
             line = event.artist
             channel = None
             for i, line_ in enumerate(self.ax_sta.lines):
@@ -151,6 +150,7 @@ class AntidromicPicker(object):
             # extract waveform from individual stim trials
             offset = 30
             t_index = event.ind[0] - offset
+            self._var_time_index = t_index
             waveform_window_indices = np.array([int(-0.5 * 1e-3 * self.fs) + i for i in range(int(1.5 * 1e-3 * self.fs))])
             waveform_window_indices += t_index
             waveform_time_axis = waveform_window_indices / self.fs * 1e3
@@ -261,19 +261,41 @@ class AntidromicPicker(object):
             return
 
         # save antidromic highlight waveform on all channels
-        # TODO: re-compute from good trials
         tmpx, _ = self._current_antidromic_highlights[0].get_data()
         n_time_indices = len(tmpx)
         average_wf = np.zeros((len(self.channel_ids), n_time_indices))
+        good_average_wf = np.zeros((len(self.channel_ids), n_time_indices))
         for i in range(len(self._current_antidromic_highlights)):
             x, y = self._current_antidromic_highlights[i].get_data()
             average_wf[i, :] = y[:]
             line, = self.ax_sta.plot(x, y, 'b', linewidth=1.0, picker=False)
             # add highlight waveforms to list of save antidromic waveforms
             self._saved_antidromic_highlights.append(line)
+            # re-compute average waveform from good trials
+            if len(self._good_var_waveforms) == len(self.channel_ids):
+                good_average_wf = average_wf
+            else:
+                channel = self.channel_ids[i]
+                waveform_window_indices = np.array([int(-0.5 * 1e-3 * self.fs) + j for j in range(int(1.5 * 1e-3 * self.fs))])
+                waveform_window_indices += self._var_time_index
+                wf_snippets = np.zeros((len(self.stimulus_indices), n_time_indices))
+                good_wf_snippets = np.zeros((len(self._good_var_waveforms), n_time_indices))
+                good_wf_cnt = 0
+                b, a = utils.set_up_bp_filter(300.0, 0.49*self.fs, self.fs)
+                for j, stim_index in enumerate(self.stimulus_indices):
+                    snippet = self.antidromic_file[channel, stim_index + waveform_window_indices]
+                    filtered_snippet = filtfilt(b, a, snippet)
+                    wf_snippets[j, :] = filtered_snippet
+                    if j in self._good_var_waveforms:
+                        good_wf_snippets[good_wf_cnt, :] = filtered_snippet
+                        good_wf_cnt += 1
+                average_wf[i, :] = np.mean(wf_snippets, axis=0)
+                good_average_wf[i, :] = np.mean(good_wf_snippets, axis=0)
         antidromic_id = int(len(self._saved_antidromic_highlights)//len(self.channel_ids)) - 1
         wf_outname = 'shank_%d_stim_%d_average_wf_%d.npy' % (self.shank, self.stim_level, antidromic_id)
         np.save(os.path.join(self.save_path, wf_outname), average_wf)
+        good_wf_outname = 'shank_%d_stim_%d_good_average_wf_%d.npy' % (self.shank, self.stim_level, antidromic_id)
+        np.save(os.path.join(self.save_path, good_wf_outname), good_average_wf)
         self._remove_current_highlight()
         self.ax_sta.figure.canvas.draw()
 
@@ -323,10 +345,6 @@ class AntidromicPicker(object):
         window_indices = np.array([i for i in range(start_index, stop_index)])
         tmp_wf = np.abs(wf_snippets[:, window_indices])[trials]
         trial_peak_indices = np.argmax(tmp_wf, axis=1)
-        # trial_peak_indices = []
-        # for i in range(tmp_wf.shape[0]):
-        #     if np.max(tmp_wf[i, :]) > 500.0:
-        #         trial_peak_indices.append(np.argmax(tmp_wf[i, :]))
         peak_var = 1.0e3/self.fs*np.std(trial_peak_indices) # variability in ms
         return peak_var
 
