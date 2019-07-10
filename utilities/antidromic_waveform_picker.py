@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import utilities as utils
 
+intan_constant = 0.195
+
 
 class AntidromicPicker(object):
     def __init__(self, stim_aligned_waveform, crossing_info, stim_level, shank):
@@ -157,7 +159,7 @@ class AntidromicPicker(object):
             wf_snippets = np.zeros((len(self.stimulus_indices), len(waveform_window_indices)))
             b, a = utils.set_up_bp_filter(300.0, 0.49*self.fs, self.fs)
             for i, stim_index in enumerate(self.stimulus_indices):
-                snippet = self.antidromic_file[channel, stim_index + waveform_window_indices]
+                snippet = intan_constant*self.antidromic_file[channel, stim_index + waveform_window_indices]
                 wf_snippets[i, :] = filtfilt(b, a, snippet)
             mean_wf = np.mean(wf_snippets, axis=0)
             self.ax_wf_var.clear()
@@ -283,7 +285,7 @@ class AntidromicPicker(object):
                 good_wf_cnt = 0
                 b, a = utils.set_up_bp_filter(300.0, 0.49*self.fs, self.fs)
                 for j, stim_index in enumerate(self.stimulus_indices):
-                    snippet = self.antidromic_file[channel, stim_index + waveform_window_indices]
+                    snippet = intan_constant*self.antidromic_file[channel, stim_index + waveform_window_indices]
                     filtered_snippet = filtfilt(b, a, snippet)
                     wf_snippets[j, :] = filtered_snippet
                     if j in self._good_var_waveforms:

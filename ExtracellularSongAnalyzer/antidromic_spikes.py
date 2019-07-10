@@ -227,11 +227,19 @@ def _detect_stimulus_times(recording, t_start, t_stop, fs):
         chunk_stop = min(stop, chunk_start + chunk_duration)
         chunk = np.mean(recording[:, chunk_start:chunk_stop], axis=0)
         # chunk = recording[0, chunk_start:chunk_stop]
-        peaks, properties = scipy.signal.find_peaks(chunk, height=1e3, distance=int(0.9*fs))
+        peaks, properties = scipy.signal.find_peaks(chunk, height=2e4, distance=int(0.9*fs))
+        # # for C26_190709_173105
+        # peaks_ = []
+        # for peak in peaks:
+        #     if 1.0e7 <= peak <= 1.2e7:
+        #         continue
+        #     peaks_.append(peak)
+        # peaks = np.array(peaks_)
         stimulus_times.extend(peaks + chunk_start)
         plt.plot(chunk, 'k-', linewidth=0.5)
         plt.plot(peaks, chunk[peaks], 'ro')
         plt.show()
+        chunk_start += chunk_duration
         count += 1
 
     stimulus_times = np.array(stimulus_times)
@@ -295,7 +303,7 @@ def _save_stimulus_aligned_waveforms_crossings(crossing_info, stimulus_indices, 
     window_time_axis = window_indices / 30.0
     threshold = -100.0 # muV
     savepath = crossing_info['Antidromic']['CrossingBasePath']
-    stim_blank_time = 2.5 # ms
+    stim_blank_time = 1.0 # ms
 
     b, a = _set_up_filter(300.0, 0.49 * fs, fs)
 
@@ -564,11 +572,11 @@ def stimulus_aligned_recording(crossing_info_name):
     stimulus_amplitude[:block_end_indices[0] + 1] = stimulus_levels_[0]
     for i in range(len(block_end_indices)):
         if i < len(block_end_indices) - 1:
-            start_index = block_end_indices[i]
-            stop_index = block_end_indices[i + 1]
+            start_index = block_end_indices[i] + 1
+            stop_index = block_end_indices[i + 1] + 1
             stimulus_amplitude[start_index:stop_index] = stimulus_levels_[i + 1]
         else:
-            start_index = block_end_indices[i]
+            start_index = block_end_indices[i] + 1
             stimulus_amplitude[start_index:] = stimulus_levels_[i + 1]
 
     # save stimulus indices and amplitudes
