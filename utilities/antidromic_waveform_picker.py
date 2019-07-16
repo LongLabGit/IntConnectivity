@@ -274,25 +274,25 @@ class AntidromicPicker(object):
             # add highlight waveforms to list of save antidromic waveforms
             self._saved_antidromic_highlights.append(line)
             # re-compute average waveform from good trials
-            if len(self._good_var_waveforms) == len(self.channel_ids):
-                good_average_wf = average_wf
-            else:
-                channel = self.channel_ids[i]
-                waveform_window_indices = np.array([int(-0.5 * 1e-3 * self.fs) + j for j in range(int(1.5 * 1e-3 * self.fs))])
-                waveform_window_indices += self._var_time_index
-                wf_snippets = np.zeros((len(self.stimulus_indices), n_time_indices))
-                good_wf_snippets = np.zeros((len(self._good_var_waveforms), n_time_indices))
-                good_wf_cnt = 0
-                b, a = utils.set_up_bp_filter(300.0, 0.49*self.fs, self.fs)
-                for j, stim_index in enumerate(self.stimulus_indices):
-                    snippet = intan_constant*self.antidromic_file[channel, stim_index + waveform_window_indices]
-                    filtered_snippet = filtfilt(b, a, snippet)
-                    wf_snippets[j, :] = filtered_snippet
-                    if j in self._good_var_waveforms:
-                        good_wf_snippets[good_wf_cnt, :] = filtered_snippet
-                        good_wf_cnt += 1
-                average_wf[i, :] = np.mean(wf_snippets, axis=0)
-                good_average_wf[i, :] = np.mean(good_wf_snippets, axis=0)
+            # if len(self._good_var_waveforms) == len(self.channel_ids):
+            #     good_average_wf = average_wf
+            # else:
+            channel = self.channel_ids[i]
+            waveform_window_indices = np.array([int(-0.5 * 1e-3 * self.fs) + j for j in range(int(1.5 * 1e-3 * self.fs))])
+            waveform_window_indices += self._var_time_index
+            wf_snippets = np.zeros((len(self.stimulus_indices), n_time_indices))
+            good_wf_snippets = np.zeros((len(self._good_var_waveforms), n_time_indices))
+            good_wf_cnt = 0
+            b, a = utils.set_up_bp_filter(300.0, 0.49*self.fs, self.fs)
+            for j, stim_index in enumerate(self.stimulus_indices):
+                snippet = intan_constant*self.antidromic_file[channel, stim_index + waveform_window_indices]
+                filtered_snippet = filtfilt(b, a, snippet)
+                wf_snippets[j, :] = filtered_snippet
+                if j in self._good_var_waveforms:
+                    good_wf_snippets[good_wf_cnt, :] = filtered_snippet
+                    good_wf_cnt += 1
+            average_wf[i, :] = np.mean(wf_snippets, axis=0)
+            good_average_wf[i, :] = np.mean(good_wf_snippets, axis=0)
         antidromic_id = int(len(self._saved_antidromic_highlights)//len(self.channel_ids)) - 1
         wf_outname = 'shank_%d_stim_%d_average_wf_%d.npy' % (self.shank, self.stim_level, antidromic_id)
         np.save(os.path.join(self.save_path, wf_outname), average_wf)
