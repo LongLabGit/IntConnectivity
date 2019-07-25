@@ -254,13 +254,13 @@ def motif_aligned_rasters_spike_waveforms(experiment_info_name):
     channel_positions = np.load(os.path.join(cluster_folder, 'channel_positions.npy'))
 
     # for cluster_id in clusters_of_interest:
-    for cluster_id in [715]:
-    # for cluster_id in clusters:
-    #     if cluster_id not in burst_clusters[0]:
-    #         continue
-        cluster = clusters[cluster_id]
-        if cluster.shank == 3 or cluster.shank == 4:
+    # for cluster_id in [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283, 1288,
+    #                    1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]:
+    # for cluster_id in [832, 833]:
+    for cluster_id in clusters:
+        if cluster_id not in burst_clusters[0]:
             continue
+        cluster = clusters[cluster_id]
         spike_times = cluster.spiketrains[0]
         # for each spike time, determine if within motif
         motif_spike_times = []
@@ -369,6 +369,9 @@ def motif_aligned_rasters_spike_waveforms(experiment_info_name):
         ax3.yaxis.set_visible(False)
         # plt.show()
         pdf_name = 'BurstCandidates_Shank_%d_Cluster_%d.pdf' % (cluster.shank, cluster_id)
+        out_folder_name = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'motif_aligned_rasters')
+        if not os.path.exists(out_folder_name):
+            os.makedirs(out_folder_name)
         out_name = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'motif_aligned_rasters', pdf_name)
         plt.savefig(out_name)
         plt.close(fig)

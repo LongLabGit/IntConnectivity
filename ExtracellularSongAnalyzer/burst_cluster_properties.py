@@ -2,6 +2,7 @@ import os
 import ast
 import sys
 import copy
+import cPickle
 import numpy as np
 from scipy import signal, stats
 import matplotlib.pyplot as plt
@@ -199,6 +200,11 @@ def individual_burst_shapes(experiment_info_name):
     # load stuff
     with open(experiment_info_name, 'r') as data_file:
         experiment_info = ast.literal_eval(data_file.read())
+
+    out_folder_name = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity')
+    if not os.path.exists(out_folder_name):
+        os.makedirs(out_folder_name)
+
     # get motif times
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
@@ -219,11 +225,11 @@ def individual_burst_shapes(experiment_info_name):
 
     # got through all clusters
     # for cluster_id in clusters_of_interest:
-    for cluster_id in [1409, 1410]:
-    # for cluster_id in burst_cluster_ids:
+    # for cluster_id in [135, 209, 266, 454, 469, 578, 705, 710, 732, 755, 772, 819]:
+    # for cluster_id in [58, 388, 702, 741, 767, 108, 244, 353, 930, 9, 92, 128, 337, 685, 728,
+    #                         733, 738, 917, 1, 696, 759, 764, 772]:
+    for cluster_id in burst_cluster_ids:
         cluster = clusters[cluster_id]
-        if cluster.shank == 1 or cluster.shank == 2:
-            continue
         spike_times = cluster.spiketrains[0]
         # for each spike time, determine if within motif
         motif_spike_times = []
@@ -359,7 +365,7 @@ def individual_burst_shapes(experiment_info_name):
         # if not, we may have erroneously joined single bursts
         ###########################
 
-        fig = plt.figure(cluster_id)
+        fig = plt.figure(2*cluster_id)
         colors = ('r', 'g', 'b', 'y', 'c', 'm', 'grey')
         # left
         # motif-aligned raster plot
@@ -397,14 +403,27 @@ def individual_burst_shapes(experiment_info_name):
         tmp_first_waveforms = np.array(tmp_first_waveforms)
         mean_first_waveform = np.mean(tmp_first_waveforms, axis=0)
         # amplitude_per_electrode = np.max(mean_first_waveform, axis=1) - np.min(mean_first_waveform, axis=1)
-        amplitude_per_electrode = np.max(np.abs(mean_first_waveform), axis=1)
-        amplitude_index = np.argmax(np.abs(mean_first_waveform), axis=1)
+        # not robust agains co-occurring spikes on other parts of shank
+        # amplitude_per_electrode = np.max(np.abs(mean_first_waveform), axis=1)
+        # amplitude_index = np.argmax(np.abs(mean_first_waveform), axis=1)
+        # sorted_electrodes = np.argsort(amplitude_per_electrode)
+        # sorted_electrodes = sorted_electrodes[::-1]
+        # robust method: use mean waveform of all spikes (this is after all what the burst waveforms were lumped with)
+        print 'Loading all cluster waveforms...'
+        all_cluster_wf = cp.reader.load_cluster_waveforms_from_spike_times(experiment_info, channel_shank_map, cluster,
+                                                                           spike_times)
+        tmp_mean_cluster_wf = np.mean(all_cluster_wf, axis=0)
+        amplitude_per_electrode = np.max(np.abs(tmp_mean_cluster_wf), axis=1)
+        amplitude_index = np.argmax(np.abs(tmp_mean_cluster_wf), axis=1)
         sorted_electrodes = np.argsort(amplitude_per_electrode)
         sorted_electrodes = sorted_electrodes[::-1]
 
         for burst_id in burst_times_waveforms:
             for trial_nr, trial in enumerate(burst_times_waveforms[burst_id]):
                 times, waveforms = trial
+                # if trial_nr in [0, 1, 8]:
+                #     burst_waveform_amplitudes[burst_id].append(None)
+                #     continue
                 if not len(times):
                     burst_waveform_amplitudes[burst_id].append(None)
                     continue
@@ -520,20 +539,36 @@ def individual_burst_shapes(experiment_info_name):
                 ax3.plot(burst_waveform_similarities[burst_id][0], burst_waveform_similarities[burst_id][1],
                          colors[burst_id], marker='o', markersize=0.5, linestyle='')
 
-            # plot spont. waveforms
+            # plot spont. amplitudes and waveforms
             spontaneous_spike_times = np.unique(all_outside_spike_times)
             spontaneous_waveforms = cp.reader.load_cluster_waveforms_from_spike_times(experiment_info,
                                                                                       channel_shank_map,
                                                                                       cluster,
                                                                                       spontaneous_spike_times)
+            tmp_amplitudes = np.zeros((spontaneous_waveforms.shape[0], spontaneous_waveforms.shape[1]))
+            for i in range(spontaneous_waveforms.shape[0]):
+                for j in range(spontaneous_waveforms.shape[1]):
+                    tmp_amplitudes[i, j] = np.abs(spontaneous_waveforms[i, j, amplitude_index[j]])
+            norm_amplitudes = np.zeros(tmp_amplitudes.shape)
+            for i in range(tmp_amplitudes.shape[0]):
+                norm_amplitudes[i, :] = tmp_amplitudes[i, :] / tmp_amplitudes[i, sorted_electrodes[0]]
+            norm_amplitudes = norm_amplitudes[:, sorted_electrodes]
+
+            norm_amplitudes_mean = np.mean(norm_amplitudes, axis=0)
+            norm_amplitudes_se = np.std(norm_amplitudes, axis=0) / np.sqrt(norm_amplitudes.shape[0])
+            ax22.plot(range(len(sorted_electrodes)), norm_amplitudes_mean, 'k', linewidth=0.5)
+            ax22.plot(range(len(sorted_electrodes)), norm_amplitudes_mean + norm_amplitudes_se, 'k',
+                      linewidth=0.5, linestyle='--')
+            ax22.plot(range(len(sorted_electrodes)), norm_amplitudes_mean - norm_amplitudes_se, 'k',
+                      linewidth=0.5, linestyle='--')
             wf_time_axis = np.arange(spontaneous_waveforms.shape[2])*1.0e3/fs
             max_channel = sorted_electrodes[0]
-            mean_wf = np.mean(spontaneous_waveforms, axis=0)
-            wf_5_percentile = np.percentile(spontaneous_waveforms, 5, axis=0)
-            wf_95_percentile = np.percentile(spontaneous_waveforms, 95, axis=0)
-            ax21.plot(wf_time_axis, mean_wf[max_channel, :], 'k', linewidth=0.5)
-            ax21.plot(wf_time_axis, wf_5_percentile[max_channel, :], 'k', linewidth=0.5, linestyle='--')
-            ax21.plot(wf_time_axis, wf_95_percentile[max_channel, :], 'k', linewidth=0.5, linestyle='--')
+            mean_wf_spont = np.mean(spontaneous_waveforms, axis=0)
+            wf_5_percentile_spont = np.percentile(spontaneous_waveforms, 5, axis=0)
+            wf_95_percentile_spont = np.percentile(spontaneous_waveforms, 95, axis=0)
+            ax21.plot(wf_time_axis, mean_wf_spont[max_channel, :], 'k', linewidth=0.5)
+            ax21.plot(wf_time_axis, wf_5_percentile_spont[max_channel, :], 'k', linewidth=0.5, linestyle='--')
+            ax21.plot(wf_time_axis, wf_95_percentile_spont[max_channel, :], 'k', linewidth=0.5, linestyle='--')
 
         ax3.set_xlabel('Trial nr.')
         ax3.set_ylabel('Similarity')
@@ -560,7 +595,57 @@ def individual_burst_shapes(experiment_info_name):
         summary_fig_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity', summary_fig_suffix)
         fig.set_size_inches(11, 8)
         plt.savefig(summary_fig_fname)
+
+        # show mean burst and spontaneous waveforms on all channels
+        similarity_electrodes = []
+        for i in range(nr_electrodes_similarity):
+            similarity_electrodes.append(shank_channels[sorted_electrodes[i]])
+        fig2 = plt.figure(2 * cluster_id + 1)
+        ax_wf = plt.subplot(1, 1, 1)
+        ax_wf.set_title('Waveform per burst and spontaneous')
+        for burst_id in burst_times_waveforms:
+            all_waveforms = []
+            for trial in burst_times_waveforms[burst_id]:
+                times, waveforms = trial
+                all_waveforms.extend(waveforms)
+            all_waveforms = np.array(all_waveforms)
+            wf_time_axis = np.arange(all_waveforms.shape[2]) * 1.0e3 / fs
+            mean_wf = np.mean(all_waveforms, axis=0)
+            for i, channel in enumerate(shank_channels):
+                channel_loc = channel_positions[channel]
+                linewidth = 1.0 if channel in similarity_electrodes else 0.5
+                ax_wf.plot(10.0 * wf_time_axis + channel_loc[0], mean_wf[i, :] + 15.0 * channel_loc[1],
+                           colors[burst_id], linewidth=linewidth)
+
+        # only run if spontaneous_waveforms is defined
+        if outside_motif_spike_times is not None:
+            mean_wf_spont = np.mean(spontaneous_waveforms, axis=0)
+            wf_time_axis = np.arange(spontaneous_waveforms.shape[2]) * 1.0e3 / fs
+            for i, channel in enumerate(shank_channels):
+                channel_loc = channel_positions[channel]
+                ax_wf.plot(10.0 * wf_time_axis + channel_loc[0], mean_wf_spont[i, :] + 15.0 * channel_loc[1],
+                           'k', linewidth=0.5)
+        fig2.set_size_inches(8, 11)
+        summary_fig2_suffix = 'burst_waveforms_cluster_%d.pdf' % cluster_id
+        summary_fig2_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity',
+                                          summary_fig2_suffix)
+        plt.savefig(summary_fig2_fname)
+
         plt.show()
+
+        # save burst and spontaneous spike information
+        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
+        summary_burst_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity',
+                                          summary_burst_suffix)
+        with open(summary_burst_fname, 'wb') as summary_burst_file:
+            cPickle.dump(burst_times_waveforms, summary_burst_file, cPickle.HIGHEST_PROTOCOL)
+        if outside_motif_spike_times is not None:
+            summary_spont_suffix = 'spontaneous_times_waveforms_cluster_%d.pkl' % cluster_id
+            summary_spont_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity',
+                                              summary_spont_suffix)
+            with open(summary_spont_fname, 'wb') as summary_spont_file:
+                cPickle.dump((spontaneous_spike_times, spontaneous_waveforms), summary_spont_file,
+                             cPickle.HIGHEST_PROTOCOL)
 
         summary_suffix = 'burst_similarities_cluster_%d.csv' % cluster_id
         summary_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity', summary_suffix)
@@ -633,6 +718,7 @@ def individual_burst_shapes(experiment_info_name):
 
 
         plt.close(fig)
+        plt.close(fig2)
 
 
 def compare_bursts_antidromic(experiment_info_name, antidromic_units_name):
@@ -678,11 +764,15 @@ def compare_bursts_antidromic(experiment_info_name, antidromic_units_name):
                 tmp_antidromic_unit = AntidromicUnit(good_wf_aligned, shank, stim_level)
                 antidromic_units.append(tmp_antidromic_unit)
 
-    comparison_clusters = [670, 786, 883, 918, 1073, 941, 776, 777, 841, 842, 938, 1092, 1093]
+    # single bursters C23 shanks 1/2
+    # comparison_clusters = [670, 786, 883, 918, 1073, 941, 776, 777, 841, 842, 938, 1092, 1093]
+    # CHANGE to single bursters shanks3/4
+    comparison_clusters = [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283, 1288,
+                       1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]
     # got through all clusters
     for cluster_id in comparison_clusters:
         cluster = clusters[cluster_id]
-        if cluster.shank == 3 or cluster.shank == 4:
+        if cluster.shank == 1 or cluster.shank == 2:
             continue
         spike_times = cluster.spiketrains[0]
         # for each spike time, determine if within motif
@@ -1054,22 +1144,25 @@ def burst_firing_rate(experiment_info_name):
     fs = experiment_info['SiProbe']['SamplingRate']
     clusters = cp.reader.read_all_clusters_except_noise(cluster_folder, 'dev', fs)
     # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
-    burst_cluster_ids, burst_cluster_nr = np.loadtxt(os.path.join(cluster_folder, 'cluster_burst.tsv'), skiprows=1,
-                                                     unpack=True)
+    # burst_cluster_ids, burst_cluster_nr = np.loadtxt(os.path.join(cluster_folder, 'cluster_burst.tsv'), skiprows=1,
+    #                                                  unpack=True)
 
-    channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
-    channel_positions = np.load(os.path.join(cluster_folder, 'channel_positions.npy'))
+    # channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
+    # channel_positions = np.load(os.path.join(cluster_folder, 'channel_positions.npy'))
 
     # got through all clusters
     # for cluster_id in clusters_of_interest:
     # for cluster_id in [670, 786, 883, 918, 1073, 941, 776, 777, 841, 842, 938, 1093, 387, 807, 897, 976, 979, 980]:
     # for cluster_id in [883, 918, 1073, 941, 776, 777, 841, 842, 938, 1093, 387, 807, 897, 976, 979, 980]:
-    for cluster_id in [841, 842, 1093, 387, 807, 897, 976, 979, 980]:
-    # for cluster_id in [938]:
+    # for cluster_id in [841, 842, 1093, 387, 807, 897, 976, 979, 980]:
+    # C23 shanks 1/2
+    # for cluster_id in [670, 786, 883, 918, 983, 1073, 941, 776, 777, 841, 842, 938, 1092, 1093, 387, 807, 897, 976, 979, 980]:
+    # C23 shanks 3/4
+    # for cluster_id in [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283, 1288,
+    #                    1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]:
+    for cluster_id in [1205]:
     # for cluster_id in burst_cluster_ids:
         cluster = clusters[cluster_id]
-        if cluster.shank == 3 or cluster.shank == 4:
-            continue
         spike_times = cluster.spiketrains[0]
         # for each spike time, determine if within motif
         motif_spike_times = []
@@ -1189,6 +1282,7 @@ def burst_firing_rate(experiment_info_name):
                     # t_spike_index_tmp = int(t_spike_tmp * fs) - (t_spike_index - burst_window_index)
                     y_min, y_max = ax.get_ylim()
                     ax.plot((t_spike_tmp_shift, t_spike_tmp_shift), (y_min, y_max), 'r--', linewidth=0.5)
+                    ax.set_ylim((y_min, y_max))
                 title_str = 'Cluster %d; burst %d; trial %d (spike %d)' % (cluster_id, burst_id, trial_cnt, spike_cnt)
                 ax.set_title(title_str)
                 spike_times_picked = []
@@ -1236,133 +1330,184 @@ def spontaneous_firing_rate(experiment_info_name):
     # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
 
     channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
+    # C23 stuff
+    # clusters_of_interest = [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283,
+    #                         1288, 1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]
+    # C21
+    clusters_of_interest = [58, 388, 702, 741, 767, 108, 209, 244, 353, 930, 9, 45, 46, 92, 128, 266, 337, 454, 685, 728,
+                            733, 738, 917, 1, 696, 732, 759, 764, 772]
+
+    # get bursts, burst spike times and spontaneous spike times
+    cluster_bursts = {}
+    cluster_spontaneous = {}
+    for cluster_id in clusters_of_interest:
+        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
+        summary_burst_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity',
+                                           summary_burst_suffix)
+        with open(summary_burst_fname, 'rb') as summary_burst_file:
+            cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
+        summary_spont_suffix = 'spontaneous_times_waveforms_cluster_%d.pkl' % cluster_id
+        summary_spont_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity',
+                                           summary_spont_suffix)
+        if os.path.exists(summary_spont_fname):
+            with open(summary_spont_fname, 'rb') as summary_spont_file:
+                cluster_spontaneous[cluster_id] = cPickle.load(summary_spont_file)
+        else:
+            cluster_spontaneous[cluster_id] = None
 
     cluster_spont_fr = {}
     # got through all clusters
     # for cluster_id in clusters_of_interest:
-    for cluster_id in [670, 786, 883, 918, 1073, 941, 776, 777, 841, 842, 938, 1092, 1093, 387, 807, 897, 976, 979, 980]:
+    # C23 shanks 1/2
+    # for cluster_id in [670, 786, 883, 918, 1073, 941, 776, 777, 841, 842, 938, 1092, 1093, 387, 807, 897, 976, 979, 980]:
+    # C23 shanks 3/4
+    for cluster_id in clusters_of_interest:
     # for cluster_id in clusters:
         # for cluster_id in burst_cluster_ids:
-        cluster = clusters[cluster_id]
-        if cluster.shank == 3 or cluster.shank == 4:
+        # cluster = clusters[cluster_id]
+        burst_times_waveforms = cluster_bursts[cluster_id]
+        if cluster_spontaneous[cluster_id] is not None:
+            spontaneous_spike_times, spontaneous_spike_waveforms = cluster_spontaneous[cluster_id]
+        else:
+            cluster_spont_fr[cluster_id] = 0.0
             continue
-        spike_times = cluster.spiketrains[0]
-        # for each spike time, determine if within motif
-        motif_spike_times = []
-        motif_event_times = []
-        motif_event_spikes = []
-        motif_times = []
-        motif_spikes = np.zeros(len(spike_times), dtype='int')
-        # motif object with attributes start, stop, center and warp (and more not relevant here)
-        for i in range(len(motif_finder_data.start)):
-            motif_start = motif_finder_data.start[i]
-            motif_stop = motif_finder_data.stop[i]
-            motif_warp = motif_finder_data.warp[i]
-            selection = (spike_times.magnitude >= motif_start) * (spike_times.magnitude <= motif_stop)
-            # in case template boundaries are so large that they reach into beginning of next motif in bout
-            # we only want to assign spikes once
-            # does not influence bursts WITHIN syllables
-            duplicate_spikes = motif_spikes * selection
-            selection -= np.array(duplicate_spikes, dtype='bool')
-            motif_spikes += selection
-            # scale spike time within motif by warp factor
-            if np.sum(selection):
-                motif_spike_times_trial = (spike_times.magnitude[selection] - motif_start) / motif_warp
-                spike_times_unwarped = spike_times.magnitude[selection] - motif_start
-            else:
-                motif_spike_times_trial = []
-                spike_times_unwarped = []
-            motif_spike_times.append(motif_spike_times_trial)
-            motif_times_trial = [0, (motif_stop - motif_start) / motif_warp]
-            motif_times.append(motif_times_trial)
-            # for all spikes in a motif, get event times (event: all successive spikes with <= 10 ms ISI)
-            print 'Getting event times from %d spikes' % (len(motif_spike_times_trial))
-            event_times_trial, event_spikes_trial = utils.event_times_from_spikes(spike_times_unwarped, 10.0)
-            motif_event_times.append(event_times_trial)
-            motif_event_spikes.append(event_spikes_trial)
+        # if cluster.shank == 1 or cluster.shank == 2:
+        #     continue
+        # spike_times = cluster.spiketrains[0]
+        # # for each spike time, determine if within motif
+        # motif_spike_times = []
+        # motif_event_times = []
+        # motif_event_spikes = []
+        # motif_times = []
+        # motif_spikes = np.zeros(len(spike_times), dtype='int')
+        # # motif object with attributes start, stop, center and warp (and more not relevant here)
+        # for i in range(len(motif_finder_data.start)):
+        #     motif_start = motif_finder_data.start[i]
+        #     motif_stop = motif_finder_data.stop[i]
+        #     motif_warp = motif_finder_data.warp[i]
+        #     selection = (spike_times.magnitude >= motif_start) * (spike_times.magnitude <= motif_stop)
+        #     # in case template boundaries are so large that they reach into beginning of next motif in bout
+        #     # we only want to assign spikes once
+        #     # does not influence bursts WITHIN syllables
+        #     duplicate_spikes = motif_spikes * selection
+        #     selection -= np.array(duplicate_spikes, dtype='bool')
+        #     motif_spikes += selection
+        #     # scale spike time within motif by warp factor
+        #     if np.sum(selection):
+        #         motif_spike_times_trial = (spike_times.magnitude[selection] - motif_start) / motif_warp
+        #         spike_times_unwarped = spike_times.magnitude[selection] - motif_start
+        #     else:
+        #         motif_spike_times_trial = []
+        #         spike_times_unwarped = []
+        #     motif_spike_times.append(motif_spike_times_trial)
+        #     motif_times_trial = [0, (motif_stop - motif_start) / motif_warp]
+        #     motif_times.append(motif_times_trial)
+        #     # for all spikes in a motif, get event times (event: all successive spikes with <= 10 ms ISI)
+        #     print 'Getting event times from %d spikes' % (len(motif_spike_times_trial))
+        #     event_times_trial, event_spikes_trial = utils.event_times_from_spikes(spike_times_unwarped, 10.0)
+        #     motif_event_times.append(event_times_trial)
+        #     motif_event_spikes.append(event_spikes_trial)
+        #
+        # ###########################
+        # # Manual burst selection
+        # ###########################
+        # fig = plt.figure(cluster_id)
+        # # left
+        # # motif-aligned raster plot
+        # ax1 = plt.subplot(1, 1, 1)
+        # title_str = 'Cluster %d raster plot; shank %d' % (cluster_id, cluster.shank)
+        # ax1.set_title(title_str)
+        # ax1.eventplot(motif_spike_times, colors='k', linewidths=0.5)
+        # ax1.eventplot(motif_times, colors='r', linewidths=1.0)
+        # t_audio = np.linspace(motif_times[0][0], motif_times[0][1], len(plot_audio))
+        # ax1.plot(t_audio, plot_audio + len(motif_times) + 2, 'k', linewidth=0.5)
+        # binsize = 0.005
+        # motif_spike_hist, motif_spike_bins = utils.mean_firing_rate_from_aligned_spikes(motif_spike_times,
+        #                                                                                 motif_times[0][0],
+        #                                                                                 motif_times[0][1],
+        #                                                                                 binsize=binsize)
+        # hist_norm = utils.normalize_trace(motif_spike_hist, 0.0, 5.0)
+        # ax1.plot(0.5 * (motif_spike_bins[:-1] + motif_spike_bins[1:]), hist_norm - 6.0, 'k-', linewidth=0.5)
+        # ax1.set_xlabel('Time (s)')
+        # ax1.set_ylabel('Motif nr.')
+        # # manually select bursts to check
+        # burst_times = []
+        # bp = utils.BurstPicker(ax1, burst_times)
+        # bp.connect()
+        # plt.show()
+        # plt.close(fig)
 
-        ###########################
-        # Manual burst selection
-        ###########################
-        fig = plt.figure(cluster_id)
-        # left
-        # motif-aligned raster plot
-        ax1 = plt.subplot(1, 1, 1)
-        title_str = 'Cluster %d raster plot; shank %d' % (cluster_id, cluster.shank)
-        ax1.set_title(title_str)
-        ax1.eventplot(motif_spike_times, colors='k', linewidths=0.5)
-        ax1.eventplot(motif_times, colors='r', linewidths=1.0)
-        t_audio = np.linspace(motif_times[0][0], motif_times[0][1], len(plot_audio))
-        ax1.plot(t_audio, plot_audio + len(motif_times) + 2, 'k', linewidth=0.5)
-        binsize = 0.005
-        motif_spike_hist, motif_spike_bins = utils.mean_firing_rate_from_aligned_spikes(motif_spike_times,
-                                                                                        motif_times[0][0],
-                                                                                        motif_times[0][1],
-                                                                                        binsize=binsize)
-        hist_norm = utils.normalize_trace(motif_spike_hist, 0.0, 5.0)
-        ax1.plot(0.5 * (motif_spike_bins[:-1] + motif_spike_bins[1:]), hist_norm - 6.0, 'k-', linewidth=0.5)
-        ax1.set_xlabel('Time (s)')
-        ax1.set_ylabel('Motif nr.')
-        # manually select bursts to check
-        burst_times = []
-        bp = utils.BurstPicker(ax1, burst_times)
-        bp.connect()
-        plt.show()
-        plt.close(fig)
-
-        burst_onsets = burst_times[::2]
-        burst_offsets = burst_times[1::2]
+        # burst_onsets = burst_times[::2]
+        # burst_offsets = burst_times[1::2]
         # for visualization
-        motif_burst_spike_times = dict(zip(range(len(burst_onsets)), [[] for i in range(len(burst_onsets))]))
-        spike_cnt = 0
+        # motif_burst_spike_times = dict(zip(range(len(burst_onsets)), [[] for i in range(len(burst_onsets))]))
+        # spike_cnt = 0
         # keep track of which motifs have associated spikes
         # spontaneous activity from 5 min before/after first/last of these
         motifs_with_spikes = []
-        # use this to the indices of only the non-zero elements of motif_spikes
-        burst_indices = dict(zip(range(len(burst_onsets)), [[] for i in range(len(burst_onsets))]))
-        for trial, motif_spike_times_trial in enumerate(motif_spike_times):
-            motif_burst_spike_times_trial = [[] for i in range(len(burst_onsets))]
-            for i in range(len(burst_onsets)):
-                burst_indices[i].append([])
-            # sanity check
-            assigned_spikes = []
-            for t in motif_spike_times_trial:
-                if t in assigned_spikes:
-                    print 'WARNING! Burst on- and offsets seem to be overlapping...'
-                    continue
-                for i in range(len(burst_onsets)):
-                    if burst_onsets[i] <= t <= burst_offsets[i]:
-                        motif_burst_spike_times_trial[i].append(t)
-                        burst_indices[i][trial].append(spike_cnt)
-                        assigned_spikes.append(t)
-                spike_cnt += 1
-                if trial not in motifs_with_spikes:
-                    motifs_with_spikes.append(trial)
-            for i in range(len(burst_onsets)):
-                motif_burst_spike_times[i].append(motif_burst_spike_times_trial[i])
+        for burst_id in burst_times_waveforms:
+            for trial_nr, trial in enumerate(burst_times_waveforms[burst_id]):
+                times, waveforms = trial
+                if len(times):
+                    motifs_with_spikes.append(trial_nr)
+        # # use this to the indices of only the non-zero elements of motif_spikes
+        # burst_indices = dict(zip(range(len(burst_onsets)), [[] for i in range(len(burst_onsets))]))
+        # for trial, motif_spike_times_trial in enumerate(motif_spike_times):
+        #     motif_burst_spike_times_trial = [[] for i in range(len(burst_onsets))]
+        #     for i in range(len(burst_onsets)):
+        #         burst_indices[i].append([])
+        #     # sanity check
+        #     assigned_spikes = []
+        #     for t in motif_spike_times_trial:
+        #         if t in assigned_spikes:
+        #             print 'WARNING! Burst on- and offsets seem to be overlapping...'
+        #             continue
+        #         for i in range(len(burst_onsets)):
+        #             if burst_onsets[i] <= t <= burst_offsets[i]:
+        #                 motif_burst_spike_times_trial[i].append(t)
+        #                 burst_indices[i][trial].append(spike_cnt)
+        #                 assigned_spikes.append(t)
+        #         spike_cnt += 1
+        #         if trial not in motifs_with_spikes:
+        #             motifs_with_spikes.append(trial)
+        #     for i in range(len(burst_onsets)):
+        #         motif_burst_spike_times[i].append(motif_burst_spike_times_trial[i])
 
         # spike times so within certain time window around motifs with spikes
         outside_window = 5 * 60.0  # minutes to seconds conversion; look in +- this window (i.e. twice as long)
         min_motif_time = motif_finder_data.start[np.min(motifs_with_spikes)]
         max_motif_time = motif_finder_data.stop[np.max(motifs_with_spikes)]
         recording_duration = max_motif_time + outside_window - (min_motif_time - outside_window)
-        outside_motif_spikes = 1 - motif_spikes
+        # outside_motif_spikes = 1 - motif_spikes
         outside_motif_spike_times = []
-        if np.sum(outside_motif_spikes):
-            outside_motif_spike_times_ = spike_times[np.where(outside_motif_spikes > 0)].magnitude
-            # careful: C23 has stray syllables that are not captured by motif template; remove those bursts heuristically
-            isis = np.diff(outside_motif_spike_times_)
-            # also remove first spike in bursts:
-            tmp2 = []
-            for i in range(1, len(isis)):
-                isi = isis[i]
-                isi_pre = isis[i - 1]
-                if isi > 0.01 and isi_pre > 0.01:
-                    tmp2.append(i)
-            outside_motif_spike_times_ = outside_motif_spike_times_[tmp2]
-            for t_ in outside_motif_spike_times_:
-                if min_motif_time - outside_window <= t_ <= max_motif_time + outside_window:
-                    outside_motif_spike_times.append(t_)
+        # if np.sum(outside_motif_spikes):
+        #     outside_motif_spike_times_ = spike_times[np.where(outside_motif_spikes > 0)].magnitude
+        #     # careful: C23 has stray syllables that are not captured by motif template; remove those bursts heuristically
+        #     isis = np.diff(outside_motif_spike_times_)
+        #     # also remove first spike in bursts:
+        #     tmp2 = []
+        #     for i in range(1, len(isis)):
+        #         isi = isis[i]
+        #         isi_pre = isis[i - 1]
+        #         if isi > 0.01 and isi_pre > 0.01:
+        #             tmp2.append(i)
+        #     outside_motif_spike_times_ = outside_motif_spike_times_[tmp2]
+        #     for t_ in outside_motif_spike_times_:
+        #         if min_motif_time - outside_window <= t_ <= max_motif_time + outside_window:
+        #             outside_motif_spike_times.append(t_)
+        # careful: C23 has stray syllables that are not captured by motif template; remove those bursts heuristically
+        isis = np.diff(spontaneous_spike_times)
+        # also remove first spike in bursts:
+        tmp2 = []
+        for i in range(1, len(isis)):
+            isi = isis[i]
+            isi_pre = isis[i - 1]
+            if isi > 0.01 and isi_pre > 0.01:
+                tmp2.append(i)
+        outside_motif_spike_times_ = spontaneous_spike_times[tmp2]
+        for t_ in outside_motif_spike_times_:
+            if min_motif_time - outside_window <= t_ <= max_motif_time + outside_window:
+                outside_motif_spike_times.append(t_)
         spontaneous_fr = len(outside_motif_spike_times) * 1.0 / recording_duration
         cluster_spont_fr[cluster_id] = spontaneous_fr
 
