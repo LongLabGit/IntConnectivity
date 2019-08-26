@@ -2,6 +2,12 @@
 collection of write functions
 '''
 import numpy as np
+import scipy.io.wavfile
+
+
+def write_wav_file(fname, fs, audio):
+    scipy.io.wavfile.write(fname, fs, audio)
+
 
 def write_neuroscope_spikes(fname, cluster, samplingRate):
     '''

@@ -269,7 +269,7 @@ def read_all_clusters_except_noise(data_folder, version, fs):
     return clusters
 
 
-def read_template_audiofile(fname):
+def read_audiofile(fname):
     fs, data = scipy.io.wavfile.read(fname)
     return fs, data
 
@@ -362,7 +362,6 @@ def load_cluster_waveforms_random_sample(experiment_info, channel_shank_map, clu
 
 def load_cluster_waveforms_from_spike_times(experiment_info, channel_shank_map, cluster, spike_times):
     """
-
     :param experiment_info: parameter file
     :param channel_shank_map: channel shank map
     :param cluster: cluster
