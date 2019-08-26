@@ -209,7 +209,7 @@ def individual_burst_shapes(experiment_info_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get motif template
-    audio_fs, audio_data = cp.reader.read_template_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
     # get clusters
     data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -225,10 +225,8 @@ def individual_burst_shapes(experiment_info_name):
 
     # got through all clusters
     # for cluster_id in clusters_of_interest:
-    # for cluster_id in [135, 209, 266, 454, 469, 578, 705, 710, 732, 755, 772, 819]:
-    # for cluster_id in [58, 388, 702, 741, 767, 108, 244, 353, 930, 9, 92, 128, 337, 685, 728,
-    #                         733, 738, 917, 1, 696, 759, 764, 772]:
-    for cluster_id in burst_cluster_ids:
+    for cluster_id in [55, 304, 309, 522, 695, 701, 761, 779]:
+    # for cluster_id in burst_cluster_ids:
         cluster = clusters[cluster_id]
         spike_times = cluster.spiketrains[0]
         # for each spike time, determine if within motif
@@ -421,7 +419,7 @@ def individual_burst_shapes(experiment_info_name):
         for burst_id in burst_times_waveforms:
             for trial_nr, trial in enumerate(burst_times_waveforms[burst_id]):
                 times, waveforms = trial
-                # if trial_nr in [0, 1, 8]:
+                # if trial_nr > 6:
                 #     burst_waveform_amplitudes[burst_id].append(None)
                 #     continue
                 if not len(times):
@@ -734,7 +732,7 @@ def compare_bursts_antidromic(experiment_info_name, antidromic_units_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get motif template
-    audio_fs, audio_data = cp.reader.read_template_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
     # get clusters
     data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -1136,7 +1134,7 @@ def burst_firing_rate(experiment_info_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get motif template
-    audio_fs, audio_data = cp.reader.read_template_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
     # get clusters
     data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -1320,7 +1318,7 @@ def spontaneous_firing_rate(experiment_info_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get motif template
-    audio_fs, audio_data = cp.reader.read_template_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
     # get clusters
     data_folder = experiment_info['SiProbe']['DataBasePath']

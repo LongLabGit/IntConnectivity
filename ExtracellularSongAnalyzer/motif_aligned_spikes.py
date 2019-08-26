@@ -13,6 +13,30 @@ clusters_of_interest = [1, 9, 45, 46, 55, 58, 108, 128, 135, 209, 244, 266, 304,
                         685, 701, 702, 705, 721, 733, 738, 759, 760, 761, 772, 779] # bursters that look the most promising
 
 
+def cut_motifs_from_full_audio(experiment_info_name, out_folder):
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+    # get motif times
+    motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
+                                                           experiment_info['Motifs']['MotifFilename']))
+    # get motif template
+    audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
+
+    # motif object with attributes start, stop, and more not relevant here
+    n_motifs = len(motif_finder_data.start)
+    for i in range(n_motifs):
+        motif_start = motif_finder_data.start[i]
+        motif_stop = motif_finder_data.stop[i]
+        motif_start_sample = int(motif_start*audio_fs)
+        motif_stop_sample = int(motif_stop*audio_fs)
+        motif_audio = audio_data[motif_start_sample:motif_stop_sample]
+        motif_name_suffix = 'motif_%d.wav' % i
+        motif_name = os.path.join(out_folder, motif_name_suffix)
+        print 'Writing motif %d of %d...' % (i+1, n_motifs)
+        cp.writer.write_wav_file(motif_name, audio_fs, motif_audio)
+
+
 def motif_aligned_rasters(experiment_info_name):
     with open(experiment_info_name, 'r') as data_file:
         experiment_info = ast.literal_eval(data_file.read())
@@ -65,7 +89,7 @@ def motif_aligned_traces(experiment_info_name, cluster_id_):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get motif template
-    audio_fs, audio_data = cp.reader.read_template_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
     # get clusters
     data_folder = experiment_info['SiProbe']['ClusterBasePath']
@@ -134,7 +158,7 @@ def motif_aligned_spike_snippets(experiment_info_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get motif template
-    audio_fs, audio_data = cp.reader.read_template_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
     # get clusters
     data_folder = experiment_info['SiProbe']['ClusterBasePath']
@@ -239,7 +263,7 @@ def motif_aligned_rasters_spike_waveforms(experiment_info_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get motif template
-    audio_fs, audio_data = cp.reader.read_template_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
     # get clusters
     data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -256,10 +280,10 @@ def motif_aligned_rasters_spike_waveforms(experiment_info_name):
     # for cluster_id in clusters_of_interest:
     # for cluster_id in [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283, 1288,
     #                    1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]:
-    # for cluster_id in [832, 833]:
-    for cluster_id in clusters:
-        if cluster_id not in burst_clusters[0]:
-            continue
+    for cluster_id in [842, 843]:
+    # for cluster_id in clusters:
+    #     if cluster_id not in burst_clusters[0]:
+    #         continue
         cluster = clusters[cluster_id]
         spike_times = cluster.spiketrains[0]
         # for each spike time, determine if within motif
@@ -385,5 +409,7 @@ if __name__ == '__main__':
         motif_aligned_rasters_spike_waveforms(info_name)
     elif len(sys.argv) == 3:
         info_name = sys.argv[1]
-        cluster_id = int(sys.argv[2])
-        motif_aligned_traces(info_name, cluster_id)
+        # cluster_id = int(sys.argv[2])
+        # motif_aligned_traces(info_name, cluster_id)
+        motif_audio_folder = sys.argv[2]
+        cut_motifs_from_full_audio(info_name, motif_audio_folder)
