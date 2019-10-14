@@ -3,10 +3,55 @@ import ast
 import sys
 import cPickle
 import numpy as np
-import scipy.io
+import scipy.io, scipy.signal
 import matplotlib.pyplot as plt
+from matplotlib import cm, colors
 import ClusterProcessing as cp
 import utilities as utils
+
+# C21
+# clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929]
+# burst_ids = [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0]
+# incl. 22 low-frequency spontaneous
+# clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929, 767]
+# burst_ids = [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0, 0]
+# C22
+# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938]
+# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0]
+# incl. 22 low-frequency spontaneous
+# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
+#                         622, 639, 703, 738, 791, 832, 942]
+# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
+#              0, 0, 0, 0, 1, 0, 0]
+# clusters_of_interest = [547]
+# burst_ids = [0]
+# C23
+# clusters_of_interest = [776, 776, 842, 842, 1092, 1092, 1267, 1267, 1302, 1302, 1303, 1303, 1330, 1330, 1376, 1154,
+#                         1154, 1166, 1166, 1205, 1205, 1220, 1220, 1268, 1268, 1340, 1340]
+# burst_ids = [2, 3, 1, 2, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 2, 0, 2, 2, 3, 0, 2, 1, 3, 2, 3]
+# C23 - lower variance of burst pairs (i.e., AB or BA? -> BA it is!)
+# clusters_of_interest = [776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376]
+# burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0]
+# incl. 22 low-frequency spontaneous
+# clusters_of_interest = [776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376,
+#                         670, 786, 941, 777, 938, 1093, 1330, 1154]
+# burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0,
+#              1, 1, 1, 3, 3, 1, 1, 3]
+# C24
+# clusters_of_interest = [77, 89, 91, 264, 563, 743, 753, 813, 853]
+# burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0]
+# incl. 22 low-frequency spontaneous
+# clusters_of_interest = [77, 89, 91, 264, 563, 743, 753, 813, 853,
+#                         360, 751, 867, 904]
+# burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0,
+#              0, 0, 0, 0]
+# C25
+# clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
+# burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
+# incl. 22 low-frequency spontaneous
+clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
+burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
+assert len(clusters_of_interest) == len(burst_ids)
 
 
 class Syllable(object):
@@ -41,7 +86,7 @@ def _load_syllables_from_egui(fname):
         if np.sum(egui_data.SegmentIsSelected[i]) > max_n_segments:
             max_n_segments = np.sum(egui_data.SegmentIsSelected[i])
             motif_for_labels = i
-    syllable_labels = egui_data.SegmentTitles[motif_for_labels]
+    syllable_labels = np.unique(egui_data.SegmentTitles[motif_for_labels])
 
     egui_syllables = {}
     for label in syllable_labels:
@@ -53,10 +98,11 @@ def _load_syllables_from_egui(fname):
             good_syllables = egui_data.SegmentIsSelected[i]
             if label in motif_syllables:
                 syllable_index = np.where(motif_syllables == label)[0]
-                if good_syllables[syllable_index]:
-                    tmp_motif_ids.append(motif_ids[i])
-                    tmp_onsets.append(egui_data.SegmentTimes[i][syllable_index, 0] * 1.0 / egui_data.Fs)
-                    tmp_offsets.append(egui_data.SegmentTimes[i][syllable_index, 1] * 1.0 / egui_data.Fs)
+                for index in syllable_index:
+                    if good_syllables[index]:
+                        tmp_motif_ids.append(motif_ids[i])
+                        tmp_onsets.append(egui_data.SegmentTimes[i][index, 0] * 1.0 / egui_data.Fs)
+                        tmp_offsets.append(egui_data.SegmentTimes[i][index, 1] * 1.0 / egui_data.Fs)
 
         tmp_motif_ids = np.array(tmp_motif_ids)
         tmp_onsets = np.array(tmp_onsets)
@@ -68,18 +114,55 @@ def _load_syllables_from_egui(fname):
     return egui_syllables
 
 
-def _save_for_matlab(experiment_info, burst_onset_times, syllable_onset_times, syllable_offset_times):
-    print 'Saving in matlab format...'
+def _calculate_reference_syllables(egui_syllables):
+    # calculate mean on-/offset per syllable
+    reference_syllables = {}
+    for label in egui_syllables:
+        syllable = egui_syllables[label]
+        mean_onset = np.mean(syllable.onsets)
+        mean_offset = np.mean(syllable.offsets)
+        reference_syllables[label] = mean_onset, mean_offset
+
+    return reference_syllables
+
+
+def _map_trial_time_to_reference_syllable(t_trial, trial_nr, egui_syllables):
+    reference_syllables = _calculate_reference_syllables(egui_syllables)
+
+    for label in egui_syllables:
+        syllable = egui_syllables[label]
+        if trial_nr not in syllable.motifs:
+            continue
+        trial_index = np.where(syllable.motifs == trial_nr)[0]
+        trial_onset = syllable.onsets[trial_index]
+        trial_offset = syllable.offsets[trial_index]
+        ref_onset = reference_syllables[label][0]
+        ref_offset = reference_syllables[label][1]
+        t_ = t_trial - trial_onset
+        mapped_t_trial = ref_onset + t_ * (ref_offset - ref_onset) / (trial_offset - trial_onset)
+        if ref_onset <= mapped_t_trial <= ref_offset:
+            return label, mapped_t_trial
+        # DIRTY HACK for C23:
+        # for t__ in mapped_t_trial:
+        #     if ref_onset <= t__ <= ref_offset:
+        #         return label, t__
+
+    return None, None
+
+
+def _save_individual_syllables_for_matlab(experiment_info, motif_ids, burst_onset_times, syllable_onset_times, syllable_offset_times,
+                                          syllable_motifs):
+    print 'Saving burst onset times in individual syllables in matlab format...'
     cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
     summary_suffix = 'motif_syllable_aligned_burst_onset_times.mat'
     summary_fname = os.path.join(cluster_folder, 'burst_identity', summary_suffix)
-    spacetime = {} #Vigi format
+    spacetime = {} # Vigi format
 
     # syllable on-/offset times
-    motif = []
+    motif = np.zeros((len(syllable_onset_times), 2))
     for i in range(len(syllable_onset_times)):
-        motif.append(syllable_onset_times[i])
-        motif.append(syllable_offset_times[i])
+        motif[i, 0] = syllable_onset_times[i]
+        motif[i, 1] = syllable_offset_times[i]
     spacetime['Motif'] = motif
 
     # burst onset times in motif
@@ -92,14 +175,105 @@ def _save_for_matlab(experiment_info, burst_onset_times, syllable_onset_times, s
     syllable_ids = np.full((len(burst_onset_times), 9), np.nan)
     syllable_times = np.full((len(burst_onset_times), 9), np.nan)
     for i, t in enumerate(burst_onset_times):
-        syllable = np.nan
+        trial_nr = motif_ids[i]
         for j in range(len(syllable_onset_times)):
+            if not syllable_motifs[j] == trial_nr:
+                continue
             if syllable_onset_times[j] <= t <= syllable_offset_times[j]:
                 syllable_ids[i, 0] = j + 1
                 syllable_times[i, 0] = t - syllable_onset_times[j]
                 break
     spacetime['sylID'] = syllable_ids
     spacetime['syl_T'] = syllable_times
+
+    # keep track of motif number during which the syllable occurred
+    motif_ids_ = np.full((len(burst_onset_times), 9), np.nan)
+    motif_ids_[:, 0] = motif_ids[:]
+    spacetime['motif_nr'] = motif_ids_
+
+    # dummy variable for uncertainty of burst onset times; small (1e-4 s)
+    burst_variance = np.full((len(burst_onset_times), 9), np.nan)
+    burst_variance[:, 0] = 1e-4 * np.ones(len(burst_onset_times))
+    spacetime['bS'] = burst_variance
+
+    scipy.io.savemat(summary_fname, {'SpaceTime': spacetime})
+
+
+def _save_mean_syllables_for_matlab(experiment_info, syllable_burst_onsets, syllable_burst_variances,
+                                    motif_burst_onsets, syllable_burst_labels, reference_syllables):
+    print 'Saving mean burst onset times in syllables in matlab format...'
+    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
+    summary_suffix = 'motif_syllable_aligned_mean_burst_onset_times.mat'
+    summary_fname = os.path.join(cluster_folder, 'burst_identity', summary_suffix)
+    spacetime = {} # Vigi format
+
+    syllable_labels = reference_syllables.keys()
+    syllable_labels.sort()
+
+    # syllable on-/offset times
+    motif = np.zeros((len(syllable_labels), 2))
+    for i, label in enumerate(syllable_labels):
+        motif[i, 0] = reference_syllables[label][0]
+        motif[i, 1] = reference_syllables[label][1]
+    spacetime['Motif'] = motif
+
+    # burst onset times in motif
+    bt = np.full((len(motif_burst_onsets), 9), np.nan)
+    bt[:, 0] = motif_burst_onsets[:]
+    spacetime['bT'] = bt
+
+    # syllable ID during which each burst occurs; NaN if during gap
+    # burst onset times relative to syllable onset; NaN if during gap
+    syllable_ids = np.full((len(syllable_burst_labels), 9), np.nan)
+    syllable_times = np.full((len(syllable_burst_onsets), 9), np.nan)
+    for i, label in enumerate(syllable_burst_labels):
+        label_index = syllable_labels.index(label)
+        syllable_ids[i, 0] = label_index + 1
+    syllable_times[:, 0] = syllable_burst_onsets[:]
+    spacetime['sylID'] = syllable_ids
+    spacetime['syl_T'] = syllable_times
+
+    # dummy variable for uncertainty of burst onset times; small (1e-4 s)
+    burst_variance = np.full((len(syllable_burst_variances), 9), np.nan)
+    burst_variance[:, 0] = syllable_burst_variances[:]
+    spacetime['bS'] = burst_variance
+
+    scipy.io.savemat(summary_fname, {'SpaceTime': spacetime})
+
+
+def _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_variances, motif_onset_times,
+                           motif_offset_times):
+    print 'Saving mean burst onset times in motif in matlab format...'
+    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
+    summary_suffix = 'motif_aligned_mean_burst_onset_times.mat'
+    summary_fname = os.path.join(cluster_folder, 'burst_identity', summary_suffix)
+    spacetime = {} # Vigi format
+
+    # motif on-/offset times
+    motif = np.zeros((len(motif_onset_times), 2))
+    for i in range(len(motif_onset_times)):
+        motif[i, 0] = motif_onset_times[i]
+        motif[i, 1] = motif_offset_times[i]
+    spacetime['Motif'] = motif
+
+    # burst onset times in motif
+    bt = np.full((len(burst_onset_times), 9), np.nan)
+    bt[:, 0] = burst_onset_times[:]
+    spacetime['bT'] = bt
+
+    # syllable ID during which each burst occurs (i.e., always 1 for entire motif)
+    # burst onset times relative to motif onset (i.e., same as bT)
+    syllable_ids = np.full((len(burst_onset_times), 9), np.nan)
+    syllable_times = np.full((len(burst_onset_times), 9), np.nan)
+    syllable_ids[:, 0] = 1
+    syllable_times[:, :] = bt[:, :]
+    spacetime['sylID'] = syllable_ids
+    spacetime['syl_T'] = syllable_times
+
+    # uncertainty of burst onset times
+    burst_variance = np.full((len(burst_onset_times), 9), np.nan)
+    burst_variance[:, 0] = burst_onset_variances[:]
+    spacetime['bS'] = burst_variance
 
     scipy.io.savemat(summary_fname, {'SpaceTime': spacetime})
 
@@ -119,46 +293,11 @@ def syllable_aligned_bursts(experiment_info_name):
     # get full audio
     audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
     audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
+    # get template audio
+    template_fs, template_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    plot_audio = utils.normalize_audio_trace(template_data, -1.0, 1.0)
     # get syllables from eGUI
     egui_syllables = _load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
-
-    # motif object with attributes start, stop, and more not relevant here
-    motif_audio_traces = []
-    n_motifs = len(motif_finder_data.start)
-    for i in range(n_motifs):
-        motif_start = motif_finder_data.start[i]
-        motif_stop = motif_finder_data.stop[i]
-        motif_start_sample = int(motif_start*audio_fs)
-        motif_stop_sample = int(motif_stop*audio_fs)
-        motif_audio = audio_data[motif_start_sample:motif_stop_sample]
-        motif_audio_traces.append(motif_audio)
-
-    # check syllable alignment
-    mean_duration = {}
-    for syllable in egui_syllables:
-        syllable_duration = 0.0
-        for i in range(len(egui_syllables[syllable].onsets)):
-            dt = egui_syllables[syllable].offsets[i] - egui_syllables[syllable].onsets[i]
-            syllable_duration += dt
-        syllable_duration /= len(egui_syllables[syllable].onsets)
-        mean_duration[syllable] = syllable_duration
-    # buffer = int(0.03 * audio_fs) # 30 ms in samples
-    # for i, syllable in enumerate(egui_syllables):
-    #     fig = plt.figure(i)
-    #     ax = plt.subplot(1, 1, 1)
-    #     for j, motif_index in enumerate(egui_syllables[syllable].motifs):
-    #     # for j in range(1):
-    #         onset_index = int(egui_syllables[syllable].onsets[j] * audio_fs)
-    #         offset_index = int(egui_syllables[syllable].offsets[j] * audio_fs)
-    #         snippet_ = motif_audio_traces[motif_index][onset_index:offset_index]
-    #         snippet = utils.normalize_trace(snippet_, -0.95, 0.95)
-    #         t_snippet = np.linspace(0.0, mean_duration[syllable], len(snippet))
-    #         ax.plot(t_snippet, snippet + 2*j, 'k', linewidth=0.5)
-    #         title_str = 'Syllable %s' % syllable
-    #         ax.set_title(title_str)
-    #         # if j == 0:
-    #         #     dummy = 1
-    # plt.show()
 
     # # get clusters
     # data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -167,56 +306,142 @@ def syllable_aligned_bursts(experiment_info_name):
     # clusters = cp.reader.read_all_clusters_except_noise(cluster_folder, 'dev', fs)
     # # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
     # get bursts, burst spike times and spontaneous spike times
-    clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929]
-    burst_ids = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0]
-    assert len(clusters_of_interest) == len(burst_ids)
+    # load all bursts
     # cluster_bursts = {}
+    cluster_bursts = []
     for i, cluster_id in enumerate(clusters_of_interest):
         summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
         summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
         with open(summary_burst_fname, 'rb') as summary_burst_file:
             # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
-            cluster_bursts = cPickle.load(summary_burst_file)
+            tmp_bursts = cPickle.load(summary_burst_file)
         # select burst ID
-        burst = cluster_bursts[burst_ids[i]]
-        # determine nearest syllable (i.e., nearest on/offset to burst onset time)
-        syllable_distance = 1e6
-        nearest_syllable = None
-        for j, label in enumerate(egui_syllables):
-            ref_motif_id = None
-            motif_id_cnt = 0
-            # determine first motif where syllable is segmented and make sure there are burst spikes
-            while ref_motif_id is None and motif_id_cnt < len(burst):
-                tmp_motif_id = egui_syllables[label].motifs[motif_id_cnt]
-                if len(burst[tmp_motif_id][0]):
-                    ref_motif_id = tmp_motif_id
-                    break
-                motif_id_cnt += 1
-            tmp_offset = motif_finder_data.start[ref_motif_id]
-            tmp_syllable_onset = egui_syllables[label].onsets[motif_id_cnt]
-            tmp_syllable_distance = abs(burst[ref_motif_id][0][0] - tmp_offset - tmp_syllable_onset)
-            if tmp_syllable_distance < syllable_distance:
-                syllable_distance = tmp_syllable_distance
-                nearest_syllable = label
-        # select all motifs where syllable is segmented
-        # and align burst times to aligned syllables
-        aligned_burst_times = []
-        for j, motif_id in enumerate(egui_syllables[nearest_syllable].motifs):
-            trial_duration = egui_syllables[nearest_syllable].offsets[j] - egui_syllables[nearest_syllable].onsets[j]
-            trial_scale = mean_duration[nearest_syllable] / trial_duration
-            trial_onset = egui_syllables[nearest_syllable].onsets[j]
-            burst_times_syllable = (burst[motif_id][0] - motif_finder_data.start[motif_id] - trial_onset) * trial_scale
-            aligned_burst_times.append(burst_times_syllable)
-        fig = plt.figure(cluster_id)
+        # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
+        cluster_bursts.append(tmp_bursts[burst_ids[i]])
+
+    # E-GUI SYLLABLE ALIGNMENT - INDIVIDUAL SYLLABLES
+    # # for i in [n_motifs - 1]:
+    # # for i in [best_motif]:
+    # motif_burst_onsets_sorted = []
+    # syllable_onsets = []
+    # syllable_offsets = []
+    # syllable_motifs = []
+    # motif_ids = []
+    # for i in range(n_motifs):
+    #     fig = plt.figure(i)
+    #     motif_start = motif_finder_data.start[i]
+    #     motif_stop = motif_finder_data.stop[i]
+    #     motif_spikes = []
+    #     motif_burst_onsets = []
+    #     for j, cluster_id in enumerate(clusters_of_interest):
+    #         # burst = cluster_bursts[cluster_id]
+    #         burst = cluster_bursts[j]
+    #         burst_times_motif = burst[i][0] - motif_start
+    #         if len(burst_times_motif):
+    #             motif_burst_onsets.append(burst_times_motif[0])
+    #             motif_spikes.append(burst_times_motif)
+    #         # else:
+    #         #     motif_burst_onsets.append([])
+    #     sorted_indices = np.argsort(motif_burst_onsets)
+    #     motif_spikes_sorted = []
+    #     # motif_burst_onsets_sorted = []
+    #     for index in sorted_indices:
+    #         motif_spikes_sorted.append(motif_spikes[index])
+    #         motif_burst_onsets_sorted.append(motif_burst_onsets[index])
+    #         motif_ids.append(i)
+    #     ax = plt.subplot(1, 1, 1)
+    #     ax.eventplot(motif_spikes_sorted, colors='k', linewidths=0.5)
+    #     # ax.eventplot(motif_burst_onsets_sorted, colors='r', linewidths=1.0)
+    #     t_audio = np.linspace(0.0, motif_stop - motif_start, len(motif_audio_traces[i]))
+    #     plot_audio = utils.normalize_audio_trace(motif_audio_traces[i])
+    #     ax.plot(t_audio, plot_audio + len(motif_burst_onsets) + 2, 'k', linewidth=0.5)
+    #     # syllable_onsets = []
+    #     # syllable_offsets = []
+    #     for syllable in egui_syllables:
+    #         if i in egui_syllables[syllable].motifs:
+    #             motif_index = np.where(egui_syllables[syllable].motifs == i)[0]
+    #             onset, offset = np.squeeze(egui_syllables[syllable].onsets[motif_index]), \
+    #                             np.squeeze(egui_syllables[syllable].offsets[motif_index])
+    #             try:
+    #                 syllable_onsets.extend(onset)
+    #                 syllable_motifs.extend([i for n in range(len(onset))])
+    #             except TypeError:
+    #                 syllable_onsets.append(onset)
+    #                 syllable_motifs.append(i)
+    #             try:
+    #                 syllable_offsets.extend(offset)
+    #             except TypeError:
+    #                 syllable_offsets.append(offset)
+    #             tmp_ylim = ax.get_ylim()
+    #             ax.plot([onset, onset], tmp_ylim, 'r--', linewidth=0.5)
+    #             ax.plot([offset, offset], tmp_ylim, 'r--', linewidth=0.5)
+    #             ax.set_ylim(tmp_ylim)
+    #     title_str = 'Bursts in motif %d' % (i)
+    #     ax.set_title(title_str)
+    #     plt.show()
+    #
+    # _save_individual_syllables_for_matlab(experiment_info, motif_ids, motif_burst_onsets_sorted, syllable_onsets,
+    #                                       syllable_offsets, syllable_motifs)
+
+    # E-GUI SYLLABLE ALIGNMENT - MEAN ONSET TIMES IN SYLLABLES
+    # for i in [n_motifs - 1]:
+    # for i in [best_motif]:
+    n_motifs = len(motif_finder_data.start)
+    reference_syllables = _calculate_reference_syllables(egui_syllables)
+    syllable_burst_onsets = []
+    syllable_burst_variances = []
+    motif_burst_onsets = []
+    syllable_burst_labels = []
+    syllable_onsets = []
+    syllable_offsets = []
+    print 'Time in syllable\tOnset variance (ms)'
+    for j, cluster_id in enumerate(clusters_of_interest):
+        fig = plt.figure(j)
+        # burst = cluster_bursts[cluster_id]
+        burst = cluster_bursts[j]
+        cluster_syllables = []
+        cluster_burst_onsets = []
+        for i in range(n_motifs):
+            motif_start = motif_finder_data.start[i]
+            motif_stop = motif_finder_data.stop[i]
+            burst_times_motif = burst[i][0] - motif_start
+            if len(burst_times_motif):
+                syllable, ref_time = _map_trial_time_to_reference_syllable(burst_times_motif[0], i, egui_syllables)
+                if syllable is None:
+                    continue
+                cluster_syllables.append(syllable)
+                cluster_burst_onsets.append(ref_time)
         ax = plt.subplot(1, 1, 1)
-        ax.eventplot(aligned_burst_times, colors='k', linewidths=0.5)
-        tmp_ylim = ax.get_ylim()
-        ax.plot([0, 0], tmp_ylim, 'r')
-        ax.plot([mean_duration[nearest_syllable], mean_duration[nearest_syllable]], tmp_ylim, 'r')
-        ax.set_ylim(tmp_ylim)
-        title_str = 'Cluster %d aligned to syllable %s' % (cluster_id, nearest_syllable)
+        title_str = 'Cluster %d burst onset times' % (cluster_id)
         ax.set_title(title_str)
+        for i in range(len(cluster_burst_onsets)):
+            ax.plot([cluster_burst_onsets[i], cluster_burst_onsets[i]], [i-0.5, i+0.5], 'k-', linewidth=0.5)
+        t_audio = np.linspace(0.0, motif_finder_data.stop[0] - motif_finder_data.start[0], len(plot_audio))
+        ax.plot(t_audio, plot_audio + len(cluster_burst_onsets) + 2, 'k', linewidth=0.5)
+        syllable_ = np.unique(cluster_syllables)
+        if len(syllable_) > 1:
+            e = 'Burst onset time in more than one syllables'
+            raise RuntimeError(e)
+        if not len(syllable_): # gap burst
+            continue
+        syllable = syllable_[0]
+        onset = reference_syllables[syllable][0]
+        offset = reference_syllables[syllable][1]
+        tmp_ylim = ax.get_ylim()
+        ax.plot([onset, onset], tmp_ylim, 'r--', linewidth=0.5)
+        ax.plot([offset, offset], tmp_ylim, 'r--', linewidth=0.5)
+        ax.set_ylim(tmp_ylim)
         plt.show()
+        # print 'Cluster %d, mean burst onset time = %.3f s' % (cluster_id, np.mean(cluster_burst_onsets) - reference_syllables[syllable][0])
+        onset_var = np.std(cluster_burst_onsets) * 1e3
+        print '%.3f\t%.1f' % (np.mean(cluster_burst_onsets) - reference_syllables[syllable][0], onset_var)
+        syllable_burst_onsets.append(np.mean(cluster_burst_onsets) - reference_syllables[syllable][0])
+        syllable_burst_variances.append(np.std(cluster_burst_onsets))
+        syllable_burst_labels.append(syllable)
+        motif_burst_onsets.append(np.mean(cluster_burst_onsets))
+
+    _save_mean_syllables_for_matlab(experiment_info, syllable_burst_onsets, syllable_burst_variances,
+                                    motif_burst_onsets, syllable_burst_labels, reference_syllables)
 
 
 def motif_aligned_bursts(experiment_info_name):
@@ -233,60 +458,184 @@ def motif_aligned_bursts(experiment_info_name):
     # get full audio
     audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
     audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
-    # get syllables from eGUI
-    egui_syllables = _load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
-
-    # motif object with attributes start, stop, and more not relevant here
-    motif_audio_traces = []
-    n_motifs = len(motif_finder_data.start)
-    for i in range(n_motifs):
-        motif_start = motif_finder_data.start[i]
-        motif_stop = motif_finder_data.stop[i]
-        motif_start_sample = int(motif_start * audio_fs)
-        motif_stop_sample = int(motif_stop * audio_fs)
-        motif_audio = audio_data[motif_start_sample:motif_stop_sample]
-        motif_audio_traces.append(motif_audio)
-
-    # check syllable alignment
-    mean_duration = {}
-    for syllable in egui_syllables:
-        syllable_duration = 0.0
-        for i in range(len(egui_syllables[syllable].onsets)):
-            dt = egui_syllables[syllable].offsets[i] - egui_syllables[syllable].onsets[i]
-            syllable_duration += dt
-        syllable_duration /= len(egui_syllables[syllable].onsets)
-        mean_duration[syllable] = syllable_duration
-    # buffer = int(0.03 * audio_fs) # 30 ms in samples
-    # for i, syllable in enumerate(egui_syllables):
-    #     fig = plt.figure(i)
-    #     ax = plt.subplot(1, 1, 1)
-    #     for j, motif_index in enumerate(egui_syllables[syllable].motifs):
-    #     # for j in range(1):
-    #         onset_index = int(egui_syllables[syllable].onsets[j] * audio_fs)
-    #         offset_index = int(egui_syllables[syllable].offsets[j] * audio_fs)
-    #         snippet_ = motif_audio_traces[motif_index][onset_index:offset_index]
-    #         snippet = utils.normalize_trace(snippet_, -0.95, 0.95)
-    #         t_snippet = np.linspace(0.0, mean_duration[syllable], len(snippet))
-    #         ax.plot(t_snippet, snippet + 2*j, 'k', linewidth=0.5)
-    #         title_str = 'Syllable %s' % syllable
-    #         ax.set_title(title_str)
-    #         # if j == 0:
-    #         #     dummy = 1
-    # plt.show()
+    # get template audio
+    template_fs, template_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    plot_audio = utils.normalize_audio_trace(template_data, -1.0, 1.0)
 
     # # get clusters
     # data_folder = experiment_info['SiProbe']['DataBasePath']
     cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
     fs = experiment_info['SiProbe']['SamplingRate']
-    # clusters = cp.reader.read_all_clusters_except_noise(cluster_folder, 'dev', fs)
+    channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
+    channel_locations = np.load(os.path.join(cluster_folder, 'channel_positions.npy'))
+    clusters = cp.reader.read_all_clusters_except_noise(cluster_folder, 'dev', fs)
     # # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
     # get bursts, burst spike times and spontaneous spike times
-    # C21
-    clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929]
-    burst_ids = [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0]
-    assert len(clusters_of_interest) == len(burst_ids)
     # load all bursts
-    cluster_bursts = {}
+    # cluster_bursts = {}
+    cluster_bursts = []
+    cluster_bursts_proofread = []
+    proofread = False
+    for i, cluster_id in enumerate(clusters_of_interest):
+        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
+        summary_burst_suffix_proofed = 'burst_times_waveforms_cluster_%d_proofread.pkl' % cluster_id
+        summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
+        summary_burst_fname_proofed = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix_proofed)
+        with open(summary_burst_fname, 'rb') as summary_burst_file:
+            # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
+            tmp_bursts = cPickle.load(summary_burst_file)
+        if proofread:
+            with open(summary_burst_fname_proofed, 'rb') as summary_burst_file_proofed:
+            #     cluster_bursts[cluster_id] = cPickle.load(summary_burst_file_proofed)
+                tmp_bursts_proofed = cPickle.load(summary_burst_file_proofed)
+        # select burst ID
+        # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
+        # not proofread
+        cluster_bursts.append(tmp_bursts[burst_ids[i]])
+        # proofread
+        if proofread:
+            cluster_bursts_proofread.append(tmp_bursts_proofed)
+
+    # MOTIF FINDER ALIGNMENT
+    n_motifs = len(motif_finder_data.start)
+    # print 'Cluster\tBurst ID\tOnset variance (ms)'
+    print 'Time in motif(s)\tOnset variance (ms)'
+    burst_onset_times = []
+    burst_onset_variances = []
+    burst_max_channel_locs = []
+    cmap_name = 'gist_ncar'
+    cmap = cm.get_cmap(cmap_name)
+    color_norm = colors.Normalize(0, len(clusters_of_interest) - 1)
+    for j, cluster_id in enumerate(clusters_of_interest):
+        fig = plt.figure(2*j)
+        if proofread:
+            burst_proofed = cluster_bursts_proofread[j]
+        else:
+            burst = cluster_bursts[j]
+        cluster_burst_onsets = []
+        cluster_spikes = []
+        spike_times_flattened = []
+        for i in range(n_motifs):
+            if len(burst[i][0]):
+                motif_start = motif_finder_data.start[i]
+                motif_warp = motif_finder_data.warp[i]
+                if proofread:
+                    # reverse this: aligned_times = burst_spikes_proofed[trial] + burst_spike_times[0] - pre_window * 1.0e-3
+                    # pre_window = 5.0
+                    # tmp1 = burst_proofed[i][0] - burst[i][0][0] + pre_window * 1.0e-3
+                    # tmp1 *= 1.0e-3
+                    # tmp1 += burst[i][0][0] - pre_window * 1.0e-3
+                    # proofread
+                    # burst_times_motif = (tmp1 - motif_start) / motif_warp
+                    burst_times_motif = (burst_proofed[i][0] - motif_start) / motif_warp
+                # not proofread
+                else:
+                    burst_times_motif = (burst[i][0] - motif_start) / motif_warp
+            # if len(burst_times_motif):
+                cluster_burst_onsets.append(burst_times_motif[0])
+                cluster_spikes.append(burst_times_motif)
+                # spike_times_flattened.extend(tmp1)
+                if proofread:
+                    spike_times_flattened.extend(burst_proofed[i][0])
+                else:
+                    spike_times_flattened.extend(burst[i][0])
+            else:
+                cluster_spikes.append([])
+
+        ax = plt.subplot(1, 1, 1)
+        # ax.eventplot(cluster_spikes, colors='k', linewidths=0.5)
+        ax.eventplot(cluster_spikes, colors=cmap(color_norm(j)), linewidths=0.5)
+        t_audio = np.linspace(0.0, motif_finder_data.stop[0] - motif_finder_data.start[0], len(plot_audio))
+        # not proofread
+        # ax.plot(t_audio, plot_audio + len(cluster_burst_onsets) + 2, 'k', linewidth=0.5)
+        # proofread
+        ax.plot(t_audio, plot_audio + n_motifs + 2, 'k', linewidth=0.5)
+        onset_var = np.std(cluster_burst_onsets) * 1e3
+        # if np.mean(cluster_burst_onsets) > 0.4:
+        #     burst_onset_times.append(np.mean(cluster_burst_onsets))
+        #     burst_onset_variances.append(onset_var)
+        burst_onset_times.append(np.mean(cluster_burst_onsets))
+        burst_onset_variances.append(onset_var)
+        title_str = 'Burst onset %d of cluster %d - var = %.1f ms' % (burst_ids[j], cluster_id, onset_var)
+        # print '%s\t%d\t%.1f' % (cluster_id, burst_ids[j], onset_var)
+        print '%.3f\t%.1f' % (np.mean(cluster_burst_onsets), onset_var)
+        ax.set_title(title_str)
+        fig_suffix = 'Cluster_%d_burst_%d_motif_aligned.pdf' % (cluster_id, burst_ids[j])
+        fig_name = os.path.join(cluster_folder, 'burst_identity', fig_suffix)
+        plt.savefig(fig_name)
+        plt.show()
+
+        cluster = clusters[cluster_id]
+        raw_burst_waveforms = cp.reader.load_cluster_waveforms_from_spike_times(experiment_info, channel_shank_map,
+                                                                                cluster, spike_times_flattened)
+        # spike times, channels, samples
+        mean_wf = np.mean(raw_burst_waveforms, axis=0)
+        max_channel = np.argmax(np.max(mean_wf, axis=1) - np.min(mean_wf, axis=1))
+        shank = cluster.shank
+        channels = np.where(channel_shank_map == shank)[0]
+        max_channel += (shank - 1) * len(channels)
+        max_channel = int(max_channel + 0.5)
+        burst_max_channel_locs.append(channel_locations[max_channel])
+
+    fig2 = plt.figure(1)
+    ax2 = plt.subplot(1, 1, 1)
+    burst_max_channel_locs = np.array(burst_max_channel_locs)
+    ax2.plot(channel_locations[:, 0], channel_locations[:, 1], 'ko', markersize=1)
+    ax2.scatter(burst_max_channel_locs[:, 0], burst_max_channel_locs[:, 1], c=range(burst_max_channel_locs.shape[0]),
+                cmap=cmap_name)
+
+    fig3 = plt.figure(2)
+    ax3 = plt.subplot(1, 1, 1)
+    for t in burst_onset_times:
+        ax3.plot([t, t], [0, 1], 'k-', linewidth=1)
+    t_audio = np.linspace(0.0, motif_finder_data.stop[0] - motif_finder_data.start[0], len(plot_audio))
+    ax3.plot(t_audio, plot_audio + 3, 'k', linewidth=0.5)
+    ax3.set_title('Mean burst onset times')
+    ax3.set_xlabel('Time (s)')
+
+    plt.show()
+
+    motif_times = 0.0, motif_finder_data.stop[0] - motif_finder_data.start[0]
+    _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_variances, [motif_times[0]],
+                           [motif_times[1]])
+
+
+def manual_burst_proofing(experiment_info_name):
+    '''
+    Manually check burst spikes and add missing spike times
+    :param experiment_info_name:
+    :return:
+    '''
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+
+    # get motif times
+    motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
+                                                           experiment_info['Motifs']['MotifFilename']))
+    # get full audio
+    audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
+    audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
+    # get template audio
+    template_fs, template_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
+    plot_audio = utils.normalize_audio_trace(template_data, -1.0, 1.0)
+
+    # # get clusters
+    data_folder = experiment_info['SiProbe']['DataBasePath']
+    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
+    fs = experiment_info['SiProbe']['SamplingRate']
+    clusters = cp.reader.read_all_clusters_except_noise(cluster_folder, 'dev', fs)
+    # # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
+
+    intan_constant = 0.195
+    recording_file = cp.reader.load_recording(os.path.join(data_folder, experiment_info['SiProbe']['AmplifierName']),
+                                              experiment_info['SiProbe']['Channels'])
+    b, a = utils.set_up_bp_filter(300.0, 0.49*fs, fs)
+
+    # get bursts, burst spike times and spontaneous spike times
+    # load all bursts
+    # cluster_bursts = {}
+    n_motifs = len(motif_finder_data.start)
+    cluster_bursts = []
     for i, cluster_id in enumerate(clusters_of_interest):
         summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
         summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
@@ -294,163 +643,108 @@ def motif_aligned_bursts(experiment_info_name):
             # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
             tmp_bursts = cPickle.load(summary_burst_file)
         # select burst ID
-        cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
+        cluster_burst = tmp_bursts[burst_ids[i]]
+        cluster = clusters[cluster_id]
 
-    # plot burst onset times in each motif
-    # for i in range(n_motifs):
-    for i in [n_motifs - 1]:
-        fig = plt.figure(i)
-        motif_start = motif_finder_data.start[i]
-        motif_stop = motif_finder_data.stop[i]
-        motif_spikes = []
-        motif_burst_onsets = []
-        for j, cluster_id in enumerate(clusters_of_interest):
-            burst = cluster_bursts[cluster_id]
-            burst_times_motif = burst[i][0] - motif_start
+        cluster_burst_onsets = []
+        cluster_spikes = []
+        spike_times_flattened = []
+        for j in range(n_motifs):
+            motif_start = motif_finder_data.start[j]
+            motif_warp = motif_finder_data.warp[j]
+            burst_times_motif = (cluster_burst[j][0] - motif_start) / motif_warp
             if len(burst_times_motif):
-                motif_burst_onsets.append(burst_times_motif[0])
-                motif_spikes.append(burst_times_motif)
-            # else:
-            #     motif_burst_onsets.append([])
-        sorted_indices = np.argsort(motif_burst_onsets)
-        motif_spikes_sorted = []
-        motif_burst_onsets_sorted = []
-        for index in sorted_indices:
-            motif_spikes_sorted.append(motif_spikes[index])
-            motif_burst_onsets_sorted.append(motif_burst_onsets[index])
-        ax = plt.subplot(1, 1, 1)
-        ax.eventplot(motif_spikes_sorted, colors='k', linewidths=0.5)
-        # ax.eventplot(motif_burst_onsets_sorted, colors='r', linewidths=1.0)
-        t_audio = np.linspace(0.0, motif_stop - motif_start, len(motif_audio_traces[i]))
-        plot_audio = utils.normalize_audio_trace(motif_audio_traces[i])
-        ax.plot(t_audio, plot_audio + len(clusters_of_interest) + 2, 'k', linewidth=0.5)
-        syllable_onsets = []
-        syllable_offsets = []
-        for syllable in egui_syllables:
-            if i in egui_syllables[syllable].motifs:
-                motif_index = np.where(egui_syllables[syllable].motifs == i)[0]
-                onset, offset = np.squeeze(egui_syllables[syllable].onsets[motif_index]), \
-                                np.squeeze(egui_syllables[syllable].offsets[motif_index])
-                syllable_onsets.append(onset)
-                syllable_offsets.append(offset)
-                tmp_ylim = ax.get_ylim()
-                ax.plot([onset, onset], tmp_ylim, 'r--', linewidth=0.5)
-                ax.plot([offset, offset], tmp_ylim, 'r--', linewidth=0.5)
-                ax.set_ylim(tmp_ylim)
-        title_str = 'Bursts in motif %d' % (i)
-        ax.set_title(title_str)
-        plt.show()
+                cluster_burst_onsets.append(burst_times_motif[0])
+                cluster_spikes.append(burst_times_motif)
+                spike_times_flattened.extend(cluster_burst[j][0])
 
-        _save_for_matlab(experiment_info, motif_burst_onsets_sorted, syllable_onsets, syllable_offsets)
+        # template max channel not necessarily reliable for sparse units split off more active units
+        # max_channel = cluster.maxChannel
+        # hence, determine max channel from raw waveforms
+        channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
+        raw_burst_waveforms = cp.reader.load_cluster_waveforms_from_spike_times(experiment_info, channel_shank_map,
+                                                                                cluster, spike_times_flattened)
+        # spike times, channels, samples
+        mean_wf = np.mean(raw_burst_waveforms, axis=0)
+        max_channel = np.argmax(np.max(mean_wf, axis=1) - np.min(mean_wf, axis=1))
+        shank = cluster.shank
+        channels = np.where(channel_shank_map == shank)[0]
+        max_channel += (shank - 1) * len(channels)
+        max_channel = int(max_channel + 0.5)
+        # pre_window = 5.0 # ms before first spike time
+        pre_window = 50.0 # ms before first spike time
+        # post_window = 15.0 # ms after first spike time
+        post_window = 50.0 # ms after first spike time
+        pre_window_index = int(pre_window*1e-3*fs)
+        post_window_index = int(post_window*1e-3*fs)
+        trial_cnt = 0
+        spike_cnt = 0
+        burst_spikes_proofed = {}
+        while trial_cnt < len(cluster_burst):
+            if not len(cluster_burst[trial_cnt][0]):
+                trial_cnt += 1
+                continue
 
+            # ugly hack: re-plot this figure every time
+            fig = plt.figure()
+            ax = plt.subplot(1, 1, 1)
+            ax.eventplot(cluster_spikes, colors='k', linewidths=0.5)
+            t_audio = np.linspace(0.0, motif_finder_data.stop[0] - motif_finder_data.start[0], len(plot_audio))
+            ax.plot(t_audio, plot_audio + len(cluster_burst_onsets) + 2, 'k', linewidth=0.5)
+            onset_var = np.std(cluster_burst_onsets) * 1e3
+            title_str = 'Burst onset %d of cluster %d - var = %.1f ms' % (burst_ids[i], cluster_id, onset_var)
+            ax.set_title(title_str)
 
-# def manual_burst_spike(experiment_info_name):
-#     # load stuff
-#     with open(experiment_info_name, 'r') as data_file:
-#         experiment_info = ast.literal_eval(data_file.read())
-#     # get motif times
-#     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
-#                                                            experiment_info['Motifs']['MotifFilename']))
-#     # get motif template
-#     audio_fs, audio_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
-#     plot_audio = utils.normalize_trace(audio_data, -1.0, 1.0)
-#     # get clusters
-#     data_folder = experiment_info['SiProbe']['DataBasePath']
-#     cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-#     fs = experiment_info['SiProbe']['SamplingRate']
-#     clusters = cp.reader.read_all_clusters_except_noise(cluster_folder, 'dev', fs)
-#     # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
-#     # burst_cluster_ids, burst_cluster_nr = np.loadtxt(os.path.join(cluster_folder, 'cluster_burst.tsv'), skiprows=1,
-#     #                                                  unpack=True)
-#
-#     # channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
-#     # channel_positions = np.load(os.path.join(cluster_folder, 'channel_positions.npy'))
-#
-#     clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929]
-#     burst_ids = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0]
-#     assert len(clusters_of_interest) == len(burst_ids)
-#
-#     # got through all clusters
-#     # for cluster_id in clusters_of_interest:
-#     # for cluster_id in [670, 786, 883, 918, 1073, 941, 776, 777, 841, 842, 938, 1093, 387, 807, 897, 976, 979, 980]:
-#     # for cluster_id in [883, 918, 1073, 941, 776, 777, 841, 842, 938, 1093, 387, 807, 897, 976, 979, 980]:
-#     # for cluster_id in [841, 842, 1093, 387, 807, 897, 976, 979, 980]:
-#     # C23 shanks 1/2
-#     # for cluster_id in [670, 786, 883, 918, 983, 1073, 941, 776, 777, 841, 842, 938, 1092, 1093, 387, 807, 897, 976, 979, 980]:
-#     # C23 shanks 3/4
-#     # for cluster_id in [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283, 1288,
-#     #                    1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]:
-#     # for cluster_id in [1205]:
-#     # for cluster_id in burst_cluster_ids:
-#     for i, cluster_id in enumerate(clusters_of_interest):
-#         summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
-#         summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
-#         with open(summary_burst_fname, 'rb') as summary_burst_file:
-#             # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
-#             cluster_bursts = cPickle.load(summary_burst_file)
-#         # select burst ID
-#         burst = cluster_bursts[burst_ids[i]]
-#         cluster = clusters[cluster_id]
-#
-#         recording_file = cp.reader.load_recording(os.path.join(data_folder, experiment_info['SiProbe']['AmplifierName']),
-#                                                   experiment_info['SiProbe']['Channels'])
-#         b, a = _set_up_filter(300.0, 0.49*fs, fs)
-#         max_channel = cluster.maxChannel
-#         burst_window = 15.0 # +- 5 ms around spike time
-#         burst_window_index = int(burst_window*1e-3*fs)
-#         burst_intervals_manual = dict(zip(range(len(burst_onsets)), [[] for i in range(len(burst_onsets))]))
-#         for burst_id in burst_indices:
-#             trial_cnt = 0
-#             spike_cnt = 0
-#             while spike_cnt < min(10, len(burst_indices[burst_id])) and trial_cnt <len(burst_indices[burst_id]):
-#                 if not len(burst_indices[burst_id][trial_cnt]):
-#                     trial_cnt += 1
-#                     continue
-#                 indices = burst_indices[burst_id][trial_cnt]
-#                 spike_time_indices = np.where(motif_spikes > 0)[0][indices]
-#                 burst_spike_times = spike_times[spike_time_indices].magnitude
-#                 t_spike = burst_spike_times[0]
-#                 t_spike_index = int(t_spike*fs)
-#                 start_index = t_spike_index - burst_window_index
-#                 stop_index = t_spike_index + burst_window_index
-#                 snippet = recording_file[max_channel, start_index:stop_index]
-#                 filtered_snippet = signal.filtfilt(b, a, snippet)
-#                 fig = plt.figure()
-#                 ax = plt.subplot(1, 1, 1)
-#                 ax.plot(np.array(range(len(filtered_snippet)))*1.0e3/fs, filtered_snippet, 'k', linewidth=0.5)
-#                 for t_spike_tmp in burst_spike_times:
-#                     t_spike_tmp_shift = t_spike_tmp*1.0e3 - (t_spike*1.0e3 - burst_window)
-#                     # t_spike_index_tmp = int(t_spike_tmp * fs) - (t_spike_index - burst_window_index)
-#                     y_min, y_max = ax.get_ylim()
-#                     ax.plot((t_spike_tmp_shift, t_spike_tmp_shift), (y_min, y_max), 'r--', linewidth=0.5)
-#                     ax.set_ylim((y_min, y_max))
-#                 title_str = 'Cluster %d; burst %d; trial %d (spike %d)' % (cluster_id, burst_id, trial_cnt, spike_cnt)
-#                 ax.set_title(title_str)
-#                 spike_times_picked = []
-#                 sp = utils.SpikePicker(ax, spike_times_picked)
-#                 sp.connect()
-#                 plt.show()
-#                 plt.close(fig)
-#                 trial_cnt += 1
-#                 if len(spike_times_picked) > 1:
-#                     spike_times_picked.sort()
-#                     intervals = np.diff(spike_times_picked)
-#                     burst_intervals_manual[burst_id].extend(intervals)
-#                     spike_cnt += 1
-#
-#         summary_suffix = 'burst_firing_rates_cluster_%d.csv' % cluster_id
-#         summary_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity', summary_suffix)
-#         with open(summary_fname, 'w') as summary_file:
-#             for burst_id in burst_intervals_manual:
-#                 all_intervals = burst_intervals_manual[burst_id]
-#                 mean_fr = 1.0e3/np.mean(all_intervals)
-#                 line = str(burst_id)
-#                 line += '\t'
-#                 line += str(mean_fr)
+            # new plot the interactive figure
+            burst_spike_times = cluster_burst[trial_cnt][0]
+            t_spike = burst_spike_times[0]
+            t_spike_index = int(t_spike*fs)
+            start_index = t_spike_index - pre_window_index
+            stop_index = t_spike_index + post_window_index
+            snippet = intan_constant * recording_file[max_channel, start_index:stop_index]
+            filtered_snippet = scipy.signal.filtfilt(b, a, snippet)
+            fig_interactive = plt.figure()
+            ax = plt.subplot(1, 1, 1)
+            ax.plot(np.array(range(len(filtered_snippet)))*1.0e3/fs, filtered_snippet, 'k', linewidth=0.5)
+            for t_spike_tmp in burst_spike_times:
+                t_spike_tmp_shift = t_spike_tmp*1.0e3 - (t_spike*1.0e3 - pre_window)
+                # t_spike_index_tmp = int(t_spike_tmp * fs) - (t_spike_index - burst_window_index)
+                y_min, y_max = ax.get_ylim()
+                ax.plot((t_spike_tmp_shift, t_spike_tmp_shift), (y_min, y_max), 'r--', linewidth=0.5)
+                ax.set_ylim((y_min, y_max))
+            title_str = 'Cluster %d; trial %d (spike %d)' % (cluster_id, trial_cnt, spike_cnt)
+            ax.set_title(title_str)
+            spike_times_picked = []
+            sp = utils.SpikePicker(ax, spike_times_picked)
+            sp.connect()
+            plt.show()
+            plt.close(fig_interactive)
+            burst_spikes_proofed[trial_cnt] = np.array(spike_times_picked)
+            if len(spike_times_picked):
+                spike_cnt += 1
+            trial_cnt += 1
 
+        # append manually added burst spikes to existing spikes
+        for trial in burst_spikes_proofed:
+            burst_spike_times = cluster_burst[trial][0]
+            # WRONG UNITS!!! TO BE FIXED:
+            # aligned_times = burst_spikes_proofed[trial] + burst_spike_times[0] - pre_window * 1.0e-3
+            aligned_times = burst_spikes_proofed[trial] * 1.0e-3 + burst_spike_times[0] - pre_window * 1.0e-3
+            tmp_wf = cluster_burst[trial][1]
+            cluster_burst[trial] = (aligned_times, tmp_wf)
+            # new_times = np.zeros(burst_spike_times.shape)
+            # new_times[:len(burst_spike_times)] = burst_spike_times[:]
+            # new_times[len(burst_spike_times):] = aligned_times[:]
+            # cluster_burst[trial][0] = new_timesq
+        # save
+        summary_burst_suffix_out = 'burst_times_waveforms_cluster_%d_proofread.pkl' % cluster_id
+        summary_burst_fname_out = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix_out)
+        with open(summary_burst_fname_out, 'wb') as summary_burst_file_out:
+            cPickle.dump(cluster_burst, summary_burst_file_out, cPickle.HIGHEST_PROTOCOL)
 
 if __name__ == '__main__':
     if len(sys.argv) == 2:
         info_name = sys.argv[1]
-        # syllable_aligned_bursts(info_name)
-        motif_aligned_bursts(info_name)
+        syllable_aligned_bursts(info_name)
+        # motif_aligned_bursts(info_name)
+        # manual_burst_proofing(info_name)
