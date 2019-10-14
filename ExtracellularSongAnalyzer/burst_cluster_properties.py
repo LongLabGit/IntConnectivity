@@ -217,15 +217,17 @@ def individual_burst_shapes(experiment_info_name):
     fs = experiment_info['SiProbe']['SamplingRate']
     clusters = cp.reader.read_all_clusters_except_noise(cluster_folder, 'dev', fs)
     # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
-    burst_cluster_ids, burst_cluster_nr = np.loadtxt(os.path.join(cluster_folder, 'cluster_burst.tsv'), skiprows=1,
-                                                     unpack=True)
+    # burst_cluster_ids, burst_cluster_nr = np.loadtxt(os.path.join(cluster_folder, 'cluster_burst.tsv'), skiprows=1,
+    #                                                  unpack=True)
 
     channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
     channel_positions = np.load(os.path.join(cluster_folder, 'channel_positions.npy'))
 
+    skiptrials = []
+
     # got through all clusters
     # for cluster_id in clusters_of_interest:
-    for cluster_id in [55, 304, 309, 522, 695, 701, 761, 779]:
+    for cluster_id in [547]:
     # for cluster_id in burst_cluster_ids:
         cluster = clusters[cluster_id]
         spike_times = cluster.spiketrains[0]
@@ -286,6 +288,9 @@ def individual_burst_shapes(experiment_info_name):
         # manually select bursts to check
         burst_times = []
         bp = utils.BurstPicker(ax1, burst_times)
+        # burst_times_A = []
+        # burst_times_B = []
+        # bp = utils.BurstPicker(ax1, burst_times_A, burst_times_B)
         bp.connect()
         plt.show()
         plt.close(fig)
@@ -419,9 +424,9 @@ def individual_burst_shapes(experiment_info_name):
         for burst_id in burst_times_waveforms:
             for trial_nr, trial in enumerate(burst_times_waveforms[burst_id]):
                 times, waveforms = trial
-                # if trial_nr > 6:
-                #     burst_waveform_amplitudes[burst_id].append(None)
-                #     continue
+                if trial_nr in skiptrials:
+                    burst_waveform_amplitudes[burst_id].append(None)
+                    continue
                 if not len(times):
                     burst_waveform_amplitudes[burst_id].append(None)
                     continue
@@ -592,7 +597,7 @@ def individual_burst_shapes(experiment_info_name):
         summary_fig_suffix = 'burst_similarities_cluster_%d.pdf' % cluster_id
         summary_fig_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity', summary_fig_suffix)
         fig.set_size_inches(11, 8)
-        plt.savefig(summary_fig_fname)
+        # plt.savefig(summary_fig_fname)
 
         # show mean burst and spontaneous waveforms on all channels
         similarity_electrodes = []
@@ -627,7 +632,7 @@ def individual_burst_shapes(experiment_info_name):
         summary_fig2_suffix = 'burst_waveforms_cluster_%d.pdf' % cluster_id
         summary_fig2_fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], 'burst_identity',
                                           summary_fig2_suffix)
-        plt.savefig(summary_fig2_fname)
+        # plt.savefig(summary_fig2_fname)
 
         plt.show()
 
@@ -1328,12 +1333,24 @@ def spontaneous_firing_rate(experiment_info_name):
     # clusters = cp.reader.read_KS_clusters(cluster_folder, clustering_src_folder, 'dev', ('good',), fs)
 
     channel_shank_map = np.load(os.path.join(cluster_folder, 'channel_shank_map.npy'))
-    # C23 stuff
+    # C21
+    # clusters_of_interest = [58, 388, 702, 741, 767, 108, 209, 244, 353, 930, 9, 45, 46, 92, 128, 266, 337, 454, 685, 728,
+    #                         733, 738, 917, 1, 696, 732, 759, 764, 772]
+    # C22
+    clusters_of_interest = [30, 69, 71, 103, 126, 205, 225, 258, 354, 370, 497, 546, 547, 622, 639, 703, 734, 738, 765, 786,
+                            791, 803, 832, 942, 58, 60, 61, 76, 97, 124, 136, 177, 183, 209, 252, 288, 305, 318, 339,
+                            532, 603, 604, 607, 623, 650, 657, 694, 719, 723, 741, 761, 804, 810, 817, 833, 945]
+    # C23
     # clusters_of_interest = [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283,
     #                         1288, 1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]
-    # C21
-    clusters_of_interest = [58, 388, 702, 741, 767, 108, 209, 244, 353, 930, 9, 45, 46, 92, 128, 266, 337, 454, 685, 728,
-                            733, 738, 917, 1, 696, 732, 759, 764, 772]
+    # C24
+    # clusters_of_interest = [5, 14, 23, 31, 55, 89, 148, 159, 196, 200, 231, 249, 264, 273, 330, 336, 349, 360, 459, 478,
+    #                         558, 563, 564, 720, 725, 743, 751, 812, 813, 824, 827, 848, 853, 858, 867, 871, 883, 884,
+    #                         903, 904]
+    # C25
+    # clusters_of_interest = [16, 50, 77, 79, 95, 104, 119, 139, 159, 187, 189, 194, 208, 229, 234, 339, 378, 386, 391,
+    #                         412, 418, 432, 442, 456, 465, 469, 476, 72, 163, 216, 240, 289, 310, 320, 325, 346, 384,
+    #                         443, 453, 471]
 
     # get bursts, burst spike times and spontaneous spike times
     cluster_bursts = {}
@@ -1528,9 +1545,9 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         experiment_info = sys.argv[1]
         # template_extent_spatial(experiment_info)
-        individual_burst_shapes(experiment_info)
+        # individual_burst_shapes(experiment_info)
         # burst_firing_rate(experiment_info)
-        # spontaneous_firing_rate(experiment_info)
+        spontaneous_firing_rate(experiment_info)
     if len(sys.argv) == 3:
         experiment_info = sys.argv[1]
         antidromic_info = sys.argv[2]

@@ -173,7 +173,7 @@ class AntidromicPicker(object):
             var = self._compute_antidromic_variability(wf_snippets)
             self._current_var = var
             self._current_var_channel = channel
-            self._good_var_waveforms = range(len(self.channel_ids))
+            self._good_var_waveforms = range(len(self.stimulus_indices))
             title_str = 'Channel %d; peak STD = %.2f ms ' % (channel, var)
             self.ax_wf_var.set_xlim(np.min(self._var_time_axis), np.max(self._var_time_axis))
             self.ax_wf_var.set_title(title_str)
@@ -265,6 +265,8 @@ class AntidromicPicker(object):
         # save antidromic highlight waveform on all channels
         tmpx, _ = self._current_antidromic_highlights[0].get_data()
         n_time_indices = len(tmpx)
+        individual_wf = []
+        good_individual_wf = []
         average_wf = np.zeros((len(self.channel_ids), n_time_indices))
         good_average_wf = np.zeros((len(self.channel_ids), n_time_indices))
         for i in range(len(self._current_antidromic_highlights)):
@@ -293,11 +295,19 @@ class AntidromicPicker(object):
                     good_wf_cnt += 1
             average_wf[i, :] = np.mean(wf_snippets, axis=0)
             good_average_wf[i, :] = np.mean(good_wf_snippets, axis=0)
+            individual_wf.append(wf_snippets)
+            good_individual_wf.append(good_wf_snippets)
         antidromic_id = int(len(self._saved_antidromic_highlights)//len(self.channel_ids)) - 1
         wf_outname = 'shank_%d_stim_%d_average_wf_%d.npy' % (self.shank, self.stim_level, antidromic_id)
         np.save(os.path.join(self.save_path, wf_outname), average_wf)
+        individual_wf_outname = 'shank_%d_stim_%d_individual_wf_%d.npy' % (self.shank, self.stim_level, antidromic_id)
+        individual_wf = np.array(individual_wf)
+        np.save(os.path.join(self.save_path, individual_wf_outname), individual_wf)
         good_wf_outname = 'shank_%d_stim_%d_good_average_wf_%d.npy' % (self.shank, self.stim_level, antidromic_id)
         np.save(os.path.join(self.save_path, good_wf_outname), good_average_wf)
+        good_individual_wf_outname = 'shank_%d_stim_%d_good_individual_wf_%d.npy' % (self.shank, self.stim_level, antidromic_id)
+        good_individual_wf = np.array(good_individual_wf)
+        np.save(os.path.join(self.save_path, good_individual_wf_outname), good_individual_wf)
         self._remove_current_highlight()
         self.ax_sta.figure.canvas.draw()
 

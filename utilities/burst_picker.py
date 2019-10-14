@@ -1,8 +1,12 @@
 
 class BurstPicker(object):
     def __init__(self, psth, burst_times):
+    # def __init__(self, psth, burst_times_A, burst_times_B):
         self.psth = psth
         self.burst_times = burst_times
+        # self.burst_times_A = burst_times_A
+        # self.burst_times_B = burst_times_B
+        self.last_syllable = None
         self.n_bursts = 0
         self._modify_bursts = False
 
@@ -20,7 +24,7 @@ class BurstPicker(object):
     def on_press(self, event):
         if not self._modify_bursts:
             return
-        self._add_burst(event.xdata)
+        self._add_burst(event)
         if not self.n_bursts % 2:
             self._modify_bursts = False
 
@@ -41,8 +45,17 @@ class BurstPicker(object):
         self.psth.figure.canvas.mpl_disconnect(self.cidpress)
         self.psth.figure.canvas.mpl_disconnect(self.cidkey)
 
-    def _add_burst(self, burst_time):
+    def _add_burst(self, event):
+        burst_time = event.xdata
         self.burst_times.append(burst_time)
+        # trial = event.ydata
+        # # DIRTY HACK for C26
+        # if trial < 19:
+        #     self.burst_times_A.append(burst_time)
+        #     self.last_syllable = 'A'
+        # else:
+        #     self.burst_times_B.append(burst_time)
+        #     self.last_syllable = 'B'
         self.n_bursts += 1
         y_min, y_max = self.psth.get_ylim()
         self.psth.plot((burst_time, burst_time), (y_min, y_max), 'k--', linewidth=0.5)
@@ -50,10 +63,18 @@ class BurstPicker(object):
         self.psth.figure.canvas.draw()
 
     def _remove_last_burst(self):
+        # if self.last_syllable is None:
+        #     return
         if not len(self.burst_times):
             return
         if not self._modify_bursts:
             return
+        # if self.last_syllable == 'A':
+        #     del self.burst_times_A[-1]
+        #     del self.burst_times_A[-1]
+        # if self.last_syllable == 'B':
+        #     del self.burst_times_B[-1]
+        #     del self.burst_times_B[-1]
         del self.burst_times[-1]
         del self.burst_times[-1]
         del self.psth.lines[-1]
