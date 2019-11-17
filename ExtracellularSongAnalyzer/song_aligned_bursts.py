@@ -19,10 +19,10 @@ import utilities as utils
 # clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938]
 # burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0]
 # incl. 22 low-frequency spontaneous
-# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
-#                         622, 639, 703, 738, 791, 832, 942]
-# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
-#              0, 0, 0, 0, 1, 0, 0]
+clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
+                        622, 639, 703, 738, 791, 832, 942]
+burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
+             0, 0, 0, 0, 1, 0, 0]
 # clusters_of_interest = [547]
 # burst_ids = [0]
 # C23
@@ -49,8 +49,8 @@ import utilities as utils
 # clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
 # burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
 # incl. 22 low-frequency spontaneous
-clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
-burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
+# clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
+# burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
 assert len(clusters_of_interest) == len(burst_ids)
 
 
@@ -276,7 +276,6 @@ def _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_varia
     spacetime['bS'] = burst_variance
 
     scipy.io.savemat(summary_fname, {'SpaceTime': spacetime})
-
 
 def syllable_aligned_bursts(experiment_info_name):
     """
@@ -742,9 +741,10 @@ def manual_burst_proofing(experiment_info_name):
         with open(summary_burst_fname_out, 'wb') as summary_burst_file_out:
             cPickle.dump(cluster_burst, summary_burst_file_out, cPickle.HIGHEST_PROTOCOL)
 
+
 if __name__ == '__main__':
     if len(sys.argv) == 2:
         info_name = sys.argv[1]
-        syllable_aligned_bursts(info_name)
-        # motif_aligned_bursts(info_name)
+        # syllable_aligned_bursts(info_name)
+        motif_aligned_bursts(info_name)
         # manual_burst_proofing(info_name)
