@@ -15,14 +15,22 @@ import utilities as utils
 # incl. 22 low-frequency spontaneous
 # clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929, 767]
 # burst_ids = [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0, 0]
+# remove unstable bursts
+# clusters_of_interest = [55, 304, 309, 695, 701, 702, 761, 779, 108, 696, 732, 759, 764, 772, 767]
+# burst_ids = [0, 0, 0, 0, 1, 0, 0, 0, 0, 3, 1, 1, 2, 2, 0]
 # C22
 # clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938]
 # burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0]
 # incl. 22 low-frequency spontaneous
-clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
-                        622, 639, 703, 738, 791, 832, 942]
-burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
-             0, 0, 0, 0, 1, 0, 0]
+# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
+#                         622, 639, 703, 738, 791, 832, 942]
+# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
+#              0, 0, 0, 0, 1, 0, 0]
+# remove unstable bursts
+# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833,
+#                         622, 639, 703, 791, 832]
+# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0,
+#              0, 0, 0, 1, 0]
 # clusters_of_interest = [547]
 # burst_ids = [0]
 # C23
@@ -37,6 +45,11 @@ burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
 #                         670, 786, 941, 777, 938, 1093, 1330, 1154]
 # burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0,
 #              1, 1, 1, 3, 3, 1, 1, 3]
+# remove unstable bursts
+# clusters_of_interest = [776, 842, 1092, 1154, 1166, 1205, 1220, 1267, 1303, 1330, 1340,
+#                         670, 786, 777, 1330, 1154]
+# burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 1, 1, 3,
+#              1, 1, 3, 1, 3]
 # C24
 # clusters_of_interest = [77, 89, 91, 264, 563, 743, 753, 813, 853]
 # burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0]
@@ -45,109 +58,21 @@ burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
 #                         360, 751, 867, 904]
 # burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0,
 #              0, 0, 0, 0]
+# remove unstable bursts
+clusters_of_interest = [77, 89, 91, 264, 563, 743, 753, 813, 853,
+                        751, 867, 904]
+burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0,
+             0, 0, 0]
 # C25
 # clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
 # burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
 # incl. 22 low-frequency spontaneous
 # clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
 # burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
+# remove unstable bursts
+# clusters_of_interest = [110, 130, 189, 521, 240, 289, 310, 346, 366, 412, 432]
+# burst_ids = [0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
 assert len(clusters_of_interest) == len(burst_ids)
-
-
-class Syllable(object):
-    def __init__(self, label, motifs, onsets, offsets):
-        self.label = label # string
-        self.motifs = motifs # motif IDs
-        self.onsets = onsets # onset times within motifs (sorted by motif IDs)
-        self.offsets = offsets # offset times within motifs (sorted by motif IDs)
-
-
-def _load_syllables_from_egui(fname):
-    """
-    :param fname: filename for eGUI MATLAB data structure
-    :return: dict with keys syllable ID and elements of class Syllable
-    """
-    egui_data_ = scipy.io.loadmat(fname, struct_as_record=False, squeeze_me=True)
-    egui_data = egui_data_['dbase']
-
-    # get motif order from file names
-    # format: motif_N.wav -> extract N
-    motif_ids = []
-    for i in range(len(egui_data.SoundFiles)):
-        motif_name = egui_data.SoundFiles[i].name
-        split_name = motif_name.split('_')
-        motif_id = int(split_name[1][:-4])
-        motif_ids.append(motif_id)
-
-    # get all syllable labels
-    max_n_segments = 0
-    motif_for_labels = None
-    for i in range(len(egui_data.SegmentIsSelected)):
-        if np.sum(egui_data.SegmentIsSelected[i]) > max_n_segments:
-            max_n_segments = np.sum(egui_data.SegmentIsSelected[i])
-            motif_for_labels = i
-    syllable_labels = np.unique(egui_data.SegmentTitles[motif_for_labels])
-
-    egui_syllables = {}
-    for label in syllable_labels:
-        tmp_motif_ids = []
-        tmp_onsets = []
-        tmp_offsets = []
-        for i in range(len(motif_ids)):
-            motif_syllables = egui_data.SegmentTitles[i]
-            good_syllables = egui_data.SegmentIsSelected[i]
-            if label in motif_syllables:
-                syllable_index = np.where(motif_syllables == label)[0]
-                for index in syllable_index:
-                    if good_syllables[index]:
-                        tmp_motif_ids.append(motif_ids[i])
-                        tmp_onsets.append(egui_data.SegmentTimes[i][index, 0] * 1.0 / egui_data.Fs)
-                        tmp_offsets.append(egui_data.SegmentTimes[i][index, 1] * 1.0 / egui_data.Fs)
-
-        tmp_motif_ids = np.array(tmp_motif_ids)
-        tmp_onsets = np.array(tmp_onsets)
-        tmp_offsets = np.array(tmp_offsets)
-        motif_order = np.argsort(tmp_motif_ids)
-        new_syllable = Syllable(label, tmp_motif_ids[motif_order], tmp_onsets[motif_order], tmp_offsets[motif_order])
-        egui_syllables[label] = new_syllable
-
-    return egui_syllables
-
-
-def _calculate_reference_syllables(egui_syllables):
-    # calculate mean on-/offset per syllable
-    reference_syllables = {}
-    for label in egui_syllables:
-        syllable = egui_syllables[label]
-        mean_onset = np.mean(syllable.onsets)
-        mean_offset = np.mean(syllable.offsets)
-        reference_syllables[label] = mean_onset, mean_offset
-
-    return reference_syllables
-
-
-def _map_trial_time_to_reference_syllable(t_trial, trial_nr, egui_syllables):
-    reference_syllables = _calculate_reference_syllables(egui_syllables)
-
-    for label in egui_syllables:
-        syllable = egui_syllables[label]
-        if trial_nr not in syllable.motifs:
-            continue
-        trial_index = np.where(syllable.motifs == trial_nr)[0]
-        trial_onset = syllable.onsets[trial_index]
-        trial_offset = syllable.offsets[trial_index]
-        ref_onset = reference_syllables[label][0]
-        ref_offset = reference_syllables[label][1]
-        t_ = t_trial - trial_onset
-        mapped_t_trial = ref_onset + t_ * (ref_offset - ref_onset) / (trial_offset - trial_onset)
-        if ref_onset <= mapped_t_trial <= ref_offset:
-            return label, mapped_t_trial
-        # DIRTY HACK for C23:
-        # for t__ in mapped_t_trial:
-        #     if ref_onset <= t__ <= ref_offset:
-        #         return label, t__
-
-    return None, None
 
 
 def _save_individual_syllables_for_matlab(experiment_info, motif_ids, burst_onset_times, syllable_onset_times, syllable_offset_times,
@@ -296,7 +221,7 @@ def syllable_aligned_bursts(experiment_info_name):
     template_fs, template_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_audio_trace(template_data, -1.0, 1.0)
     # get syllables from eGUI
-    egui_syllables = _load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
+    egui_syllables = utils.load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
 
     # # get clusters
     # data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -386,7 +311,7 @@ def syllable_aligned_bursts(experiment_info_name):
     # for i in [n_motifs - 1]:
     # for i in [best_motif]:
     n_motifs = len(motif_finder_data.start)
-    reference_syllables = _calculate_reference_syllables(egui_syllables)
+    reference_syllables = utils.calculate_reference_syllables(egui_syllables)
     syllable_burst_onsets = []
     syllable_burst_variances = []
     motif_burst_onsets = []
@@ -405,7 +330,7 @@ def syllable_aligned_bursts(experiment_info_name):
             motif_stop = motif_finder_data.stop[i]
             burst_times_motif = burst[i][0] - motif_start
             if len(burst_times_motif):
-                syllable, ref_time = _map_trial_time_to_reference_syllable(burst_times_motif[0], i, egui_syllables)
+                syllable, ref_time = utils.map_trial_time_to_reference_syllable(burst_times_motif[0], i, egui_syllables)
                 if syllable is None:
                     continue
                 cluster_syllables.append(syllable)
