@@ -15,7 +15,10 @@ burst_ids = []
 
 bird_info['C21'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C21\clustered\experiment_C21_d1_alignment_reducedTemp.info'
 bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
-bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
+# use the following for motif-level variability
+# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
+# and this one for syllable-level variability
+bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
 bird_info['C24'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C24\experiment_C24_alignment.info'
 bird_info['C25'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C25\experiment_C25_alignment.info'
 
@@ -51,10 +54,10 @@ bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685,
 # clusters_of_interest = [776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376]
 # burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0]
 # incl. 22 low-frequency spontaneous
-# clusters_of_interest = [776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376,
-#                         670, 786, 941, 777, 938, 1093, 1330, 1154]
-# burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0,
-#              1, 1, 1, 3, 3, 1, 1, 3]
+# bird_bursts['C23'] =  ([776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376,
+#                         670, 786, 941, 777, 938, 1093, 1330, 1154],
+#                        [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0,
+#                         1, 1, 1, 3, 3, 1, 1, 3])
 # remove unstable bursts
 bird_bursts['C23'] = ([776, 842, 1092, 1154, 1166, 1205, 1220, 1267, 1303, 1330, 1340,
                        670, 786, 777, 1330, 1154],
@@ -82,6 +85,51 @@ bird_bursts['C24'] = ([77, 89, 91, 264, 563, 743, 753, 813, 853,
 # remove unstable bursts
 bird_bursts['C25'] = ([110, 130, 189, 521, 240, 289, 310, 346, 366, 412, 432],
                       [0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1])
+
+
+def _load_common_data(experiment_info_name):
+    # load all bursts in all trials
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+
+    # get motif times
+    motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
+                                                           experiment_info['Motifs']['MotifFilename']))
+
+    # # get clusters
+    # data_folder = experiment_info['SiProbe']['DataBasePath']
+    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
+    # get bursts, burst spike times and spontaneous spike times
+    # load all bursts
+    cluster_bursts = []
+    cluster_bursts_proofread = []
+    proofread = False
+    for i, cluster_id in enumerate(clusters_of_interest):
+        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
+        summary_burst_suffix_proofed = 'burst_times_waveforms_cluster_%d_proofread.pkl' % cluster_id
+        summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
+        summary_burst_fname_proofed = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix_proofed)
+        with open(summary_burst_fname, 'rb') as summary_burst_file:
+            # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
+            tmp_bursts = cPickle.load(summary_burst_file)
+        if proofread:
+            with open(summary_burst_fname_proofed, 'rb') as summary_burst_file_proofed:
+                #     cluster_bursts[cluster_id] = cPickle.load(summary_burst_file_proofed)
+                tmp_bursts_proofed = cPickle.load(summary_burst_file_proofed)
+        # select burst ID
+        # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
+        # not proofread
+        cluster_bursts.append(_clean_up_bursts(tmp_bursts[burst_ids[i]]))
+        # proofread
+        if proofread:
+            cluster_bursts_proofread.append(_clean_up_bursts(tmp_bursts_proofed))
+
+    common_data = dict()
+    common_data['motif'] = motif_finder_data
+    common_data['bursts'] = cluster_bursts
+    common_data['bursts_proofread'] = cluster_bursts_proofread
+
+    return common_data
 
 
 def _clean_up_bursts(bursts):
@@ -138,10 +186,10 @@ def _align_burst_sequence_pair(sequence1, sequence2):
     # p_opt_, p_cov = curve_fit(lambda x, a: a * x, seq2_times - seq1_times[0], seq1_times)
     # p_opt = p_opt_, - seq1_times[0] * p_opt_
     offset = np.min(seq1_times) - np.min(seq2_times)
-    p_opt, p_cov = curve_fit(lambda x, a, b: a * x + b, seq2_times, seq1_times, bounds=((-np.inf, offset - 1e-3),
-                                                                                        (+np.inf, offset)))
-    print 'offset = %.3f, p_opt[1] = %.3f' % (offset, p_opt[1])
-    # p_opt, p_cov = curve_fit(lambda x, a, b: a * x + b, seq2_times, seq1_times)
+    # p_opt, p_cov = curve_fit(lambda x, a, b: a * x + b, seq2_times, seq1_times, bounds=((-np.inf, offset - 1e-6),
+    #                                                                                     (+np.inf, offset)))
+    # print 'offset = %.3f, p_opt[1] = %.3f' % (offset, p_opt[1])
+    p_opt, p_cov = curve_fit(lambda x, a, b: a * x + b, seq2_times, seq1_times)
     # p_opt, p_cov = curve_fit(lambda x, a, b, c: a * x * x + b * x + c, seq2_times, seq1_times)
 
     # seq2_times_aligned = seq2_times - p_opt
@@ -161,40 +209,11 @@ def burst_interval_scaling_per_trial(experiment_info_name):
     Alignment of all bursts in individual trials.
     Possible because they have been recorded simultaneously.
     '''
-    with open(experiment_info_name, 'r') as data_file:
-        experiment_info = ast.literal_eval(data_file.read())
-
-    # get motif times
-    motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
-                                                           experiment_info['Motifs']['MotifFilename']))
-
-    # # get clusters
-    # data_folder = experiment_info['SiProbe']['DataBasePath']
-    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-    # get bursts, burst spike times and spontaneous spike times
-    # load all bursts
-    cluster_bursts = []
-    cluster_bursts_proofread = []
+    common_data = _load_common_data(experiment_info_name)
+    motif_finder_data = common_data['motif']
+    cluster_bursts = common_data['bursts']
+    cluster_bursts_proofread = common_data['bursts_proofread']
     proofread = False
-    for i, cluster_id in enumerate(clusters_of_interest):
-        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
-        summary_burst_suffix_proofed = 'burst_times_waveforms_cluster_%d_proofread.pkl' % cluster_id
-        summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
-        summary_burst_fname_proofed = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix_proofed)
-        with open(summary_burst_fname, 'rb') as summary_burst_file:
-            # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
-            tmp_bursts = cPickle.load(summary_burst_file)
-        if proofread:
-            with open(summary_burst_fname_proofed, 'rb') as summary_burst_file_proofed:
-                #     cluster_bursts[cluster_id] = cPickle.load(summary_burst_file_proofed)
-                tmp_bursts_proofed = cPickle.load(summary_burst_file_proofed)
-        # select burst ID
-        # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
-        # not proofread
-        cluster_bursts.append(tmp_bursts[burst_ids[i]])
-        # proofread
-        if proofread:
-            cluster_bursts_proofread.append(tmp_bursts_proofed)
 
     # TODO: get distribution of burst durations - our interval time scale should be some multiple of this
 
@@ -356,41 +375,9 @@ def pairwise_burst_distance_jitter(experiment_info_name):
     :param experiment_info_name: experiment info file
     :return: None
     '''
-    # load all bursts in all trials
-    with open(experiment_info_name, 'r') as data_file:
-        experiment_info = ast.literal_eval(data_file.read())
-
-    # get motif times
-    motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
-                                                           experiment_info['Motifs']['MotifFilename']))
-
-    # # get clusters
-    # data_folder = experiment_info['SiProbe']['DataBasePath']
-    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-    # get bursts, burst spike times and spontaneous spike times
-    # load all bursts
-    cluster_bursts = []
-    cluster_bursts_proofread = []
-    proofread = False
-    for i, cluster_id in enumerate(clusters_of_interest):
-        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
-        summary_burst_suffix_proofed = 'burst_times_waveforms_cluster_%d_proofread.pkl' % cluster_id
-        summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
-        summary_burst_fname_proofed = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix_proofed)
-        with open(summary_burst_fname, 'rb') as summary_burst_file:
-            # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
-            tmp_bursts = cPickle.load(summary_burst_file)
-        if proofread:
-            with open(summary_burst_fname_proofed, 'rb') as summary_burst_file_proofed:
-                #     cluster_bursts[cluster_id] = cPickle.load(summary_burst_file_proofed)
-                tmp_bursts_proofed = cPickle.load(summary_burst_file_proofed)
-        # select burst ID
-        # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
-        # not proofread
-        cluster_bursts.append(_clean_up_bursts(tmp_bursts[burst_ids[i]]))
-        # proofread
-        if proofread:
-            cluster_bursts_proofread.append(_clean_up_bursts(tmp_bursts_proofed))
+    common_data = _load_common_data(experiment_info_name)
+    motif_finder_data = common_data['motif']
+    cluster_bursts = common_data['bursts']
 
     # implement this similar to burst interval scaling, but now simply compute mean interval
     # and STD of interval and plot STD interval as function of mean interval
@@ -431,48 +418,15 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
     :param experiment_info_name: experiment info file
     :return: None
     '''
-    # load all bursts in all trials
-    with open(experiment_info_name, 'r') as data_file:
-        experiment_info = ast.literal_eval(data_file.read())
-
-    # get motif times
-    motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
-                                                           experiment_info['Motifs']['MotifFilename']))
-
-    # # get clusters
-    # data_folder = experiment_info['SiProbe']['DataBasePath']
-    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-    # get bursts, burst spike times and spontaneous spike times
-    # load all bursts
-    cluster_bursts = []
-    cluster_bursts_proofread = []
-    proofread = False
-    for i, cluster_id in enumerate(clusters_of_interest):
-        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
-        summary_burst_suffix_proofed = 'burst_times_waveforms_cluster_%d_proofread.pkl' % cluster_id
-        summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
-        summary_burst_fname_proofed = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix_proofed)
-        with open(summary_burst_fname, 'rb') as summary_burst_file:
-            # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
-            tmp_bursts = cPickle.load(summary_burst_file)
-        if proofread:
-            with open(summary_burst_fname_proofed, 'rb') as summary_burst_file_proofed:
-                #     cluster_bursts[cluster_id] = cPickle.load(summary_burst_file_proofed)
-                tmp_bursts_proofed = cPickle.load(summary_burst_file_proofed)
-        # select burst ID
-        # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
-        # not proofread
-        cluster_bursts.append(_clean_up_bursts(tmp_bursts[burst_ids[i]]))
-        # proofread
-        if proofread:
-            cluster_bursts_proofread.append(_clean_up_bursts(tmp_bursts_proofed))
+    common_data = _load_common_data(experiment_info_name)
+    motif_finder_data = common_data['motif']
+    cluster_bursts = common_data['bursts']
 
     # generate 'residual sequence' (i.e., data structure storing residuals for each burst)
     residual_sequence = []
     for i in range(len(cluster_bursts)):
         residual_sequence.append([])
     # generate sequence for each trial
-    # TODO: syllable-level alignment
     trial_sequences = []
     sequence_durations = []
     n_motifs = len(motif_finder_data.start)
@@ -490,6 +444,51 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
         trial_sequences.append(sequence)
         tmp_seq.sort()
         sequence_durations.append(tmp_seq[-1] - tmp_seq[0])
+
+    # generate sequence ALIGNED TO FIRST SPIKE for each trial with first spike
+    trial_sequences = []
+    sequence_durations = []
+    n_motifs = len(motif_finder_data.start)
+    # find first burst
+    first_burst_id = []
+    for trial_nr in range(n_motifs):
+        tmp_seq = []
+        tmp_seq_burst_ids = []
+        for burst_id in range(len(cluster_bursts)):
+            burst = cluster_bursts[burst_id][trial_nr]
+            if len(burst):
+                # burst_time = burst[0]
+                # burst_time = 0.5 * (burst[0] + burst[-1])
+                burst_time = np.mean(burst)
+                tmp_seq.append(burst_time)
+                tmp_seq_burst_ids.append(burst_id)
+        first_burst_id.append(tmp_seq_burst_ids[np.argmin(tmp_seq)])
+    first_burst = np.bincount(first_burst_id).argmax()
+
+    n_motifs_first_burst = 0
+    motif_durations = []
+    for trial_nr in range(n_motifs):
+        motif_duration = motif_finder_data.stop[trial_nr] - motif_finder_data.start[trial_nr]
+        motif_durations.append(motif_duration)
+        sequence = {}
+        tmp_seq = []
+        first_burst_in_seq = False
+        for burst_id in range(len(cluster_bursts)):
+            if burst_id == first_burst:
+                first_burst_in_seq = True
+            burst = cluster_bursts[burst_id][trial_nr]
+            if len(burst):
+                # burst_time = burst[0]
+                # burst_time = 0.5 * (burst[0] + burst[-1])
+                burst_time = np.mean(burst)
+                sequence[burst_id] = burst_time
+                tmp_seq.append(burst_time)
+        if first_burst_in_seq:
+            trial_sequences.append(sequence)
+            tmp_seq.sort()
+            sequence_durations.append(tmp_seq[-1] - tmp_seq[0])
+            n_motifs_first_burst += 1
+    n_motifs = n_motifs_first_burst
 
     # calculate all pairwise sequence alignments
     # for each pairwise alignment, add residuals for each burst to residual sequence
@@ -520,10 +519,10 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
     print 'Mean residual = %.1f ms' % (1e3 * mean_residual)
 
     # plot all trials aligned to a reference trial
-    motif_durations = []
-    for i in range(n_motifs):
-        motif_duration = motif_finder_data.stop[i] - motif_finder_data.start[i]
-        motif_durations.append(motif_duration)
+    # motif_durations = []
+    # for i in range(n_motifs):
+    #     motif_duration = motif_finder_data.stop[i] - motif_finder_data.start[i]
+    #     motif_durations.append(motif_duration)
     mean_motif_duration = np.mean(motif_durations)
     ref_trial = 0
     min_difference = abs(motif_durations[ref_trial] - mean_motif_duration)
@@ -646,6 +645,163 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
     plt.show()
 
 
+def burst_sequence_syllable_alignment(experiment_info_name):
+    '''
+    align sequences in each trial in individual syllables by linear fit
+    Fit residuals are a direct measure of burst timing variability
+    :param experiment_info_name:
+    :return:
+    '''
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+    common_data = _load_common_data(experiment_info_name)
+    motif_finder_data = common_data['motif']
+    cluster_bursts = common_data['bursts']
+
+    egui_syllables = utils.load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
+
+    # data structures for syllable-level sequences
+    trial_syl_sequences = dict()
+    for syl in egui_syllables:
+        trial_syl_sequences[syl] = []
+    n_motifs = len(motif_finder_data.start)
+    for trial_nr in range(n_motifs):
+        for syl in egui_syllables:
+            sequence = {}
+            for burst_id in range(len(cluster_bursts)):
+                burst = cluster_bursts[burst_id][trial_nr]
+                if len(burst):
+                    # burst_time = burst[0]
+                    # burst_time = 0.5 * (burst[0] + burst[-1])
+                    burst_time = np.mean(burst)
+                    burst_time_motif_aligned = burst_time - motif_finder_data.start[trial_nr]
+                    burst_syl, burst_syl_time = utils.map_trial_time_to_trial_syllable(burst_time_motif_aligned,
+                                                                                       trial_nr, egui_syllables)
+                    if burst_syl is None or burst_syl != syl:
+                        continue
+                    sequence[burst_id] = burst_syl_time
+            print 'Added sequence %d of length %d for syllable %s' % (trial_nr, len(sequence), syl)
+            trial_syl_sequences[syl].append(sequence)
+
+    # calculate all pairwise sequence alignments
+    # for linear scaling, we need at least three bursts to estimate remaining variance
+    syl_sequence_alignments = dict()
+    for syl in egui_syllables:
+        syl_sequence_alignments[syl] = dict()
+        for trial1_nr in range(n_motifs):
+            sequence1 = trial_syl_sequences[syl][trial1_nr]
+            # for trial2_nr in range(trial1_nr + 1, n_motifs):
+            for trial2_nr in range(n_motifs):
+                sequence2 = trial_syl_sequences[syl][trial2_nr]
+                if len(sequence1) < 3 or len(sequence2) < 3:
+                    syl_sequence_alignments[syl][trial1_nr, trial2_nr] = None
+                    continue
+                alignment, residuals = _align_burst_sequence_pair(sequence1, sequence2)
+                syl_sequence_alignments[syl][trial1_nr, trial2_nr] = alignment
+                # if residuals is None:
+                #     continue
+                # else:
+                #     for burst_id in residuals:
+                #         res = residuals[burst_id]
+                #         residual_sequence[burst_id].append(res)
+
+    motif_durations = []
+    for i in range(len(motif_finder_data.start)):
+        motif_durations.append(motif_finder_data.stop[i] - motif_finder_data.start[i])
+    mean_motif_duration = np.mean(motif_durations)
+    ref_trial = 0
+    min_difference = abs(motif_durations[ref_trial] - mean_motif_duration)
+    for i in range(1, n_motifs):
+        tmp_difference = abs(motif_durations[i] - mean_motif_duration)
+        if tmp_difference < min_difference:
+            min_difference = tmp_difference
+            ref_trial = i
+
+    print 'Reference trial %d duration: %.0f ms; mean motif duration: %.0f ms' % (ref_trial, 1e3 * motif_durations[ref_trial],
+                                                                                  1e3 * mean_motif_duration)
+    # don't choose any particular order for now
+    burst_order = np.array(range(len(cluster_bursts)))
+
+    fig1 = plt.figure(1)
+    # fig2 = plt.figure(2)
+    syllables = egui_syllables.keys()
+    syllables.sort()
+    nr_syl = len(syllables)
+    for n, syl in enumerate(syllables):
+        ax1 = fig1.add_subplot(2, nr_syl, n + 1)
+        sequence_ref_scales = []
+        all_burst_times = {}
+        for burst_id in range(len(cluster_bursts)):
+            all_burst_times[burst_id] = []
+        for i in range(n_motifs):
+            # if i == ref_trial or i == 0:
+            #     debug_plot[i] = []
+            if i == ref_trial:
+                alignment = (1.0, 0.0)
+                # alignment = (0.0, 1.0, 0.0)
+                sequence_ref_scales.append(1.0)
+            else:
+                try:
+                    alignment_ = syl_sequence_alignments[syl][i, ref_trial]
+                    if alignment_ is None:
+                        continue
+                    alignment = []
+                    # we're inverting the fitted line
+                    alignment.append(1.0 / alignment_[0])
+                    alignment.append(-1.0 * alignment_[1] / alignment_[0])
+                    sequence_ref_scales.append(alignment[0])
+                except KeyError:
+                    alignment = syl_sequence_alignments[syl][ref_trial, i]
+                    if alignment is None:
+                        sequence_ref_scales.append(None)
+                        continue
+                    sequence_ref_scales.append(alignment[0])
+            trial_sequence = trial_syl_sequences[syl][i]
+            raw_times = []
+            sequence_id = []
+            for j, burst_id in enumerate(burst_order):
+                try:
+                    raw_times.append(trial_sequence[burst_id])
+                    sequence_id.append(j)
+                except KeyError:
+                    continue
+            raw_times = np.array(raw_times)
+            aligned_times = alignment[0] * raw_times + alignment[1]
+            # aligned_times = alignment[0] * raw_times * raw_times + alignment[1] * raw_times + alignment[2]
+            # keep track of all aligned burst times here for variability calculation later
+            burst_count = 0
+            for burst_id in burst_order:
+                if burst_id in trial_sequence:
+                    all_burst_times[burst_id].append(aligned_times[burst_count])
+                    burst_count += 1
+            ax1.plot(aligned_times, sequence_id, 'ko', fillstyle='none', alpha=0.5)
+        ax1.set_xlabel('Time (s)')
+        ax1.set_ylabel('Cell ID')
+        title_str = 'Syllable %s' % syl
+        ax1.set_title(title_str)
+
+        # now plot variability of aligned bursts in this syllable
+        ax2 = fig1.add_subplot(2, nr_syl, n + nr_syl + 1)
+        mean_burst_times = []
+        burst_variabilities = []
+        for burst_id in all_burst_times:
+            t_vec = all_burst_times[burst_id]
+            if len(t_vec) > 1:
+                mean_burst_times.append(np.mean(all_burst_times[burst_id]))
+                burst_variabilities.append(np.std(all_burst_times[burst_id]))
+        if len(mean_burst_times):
+            mean_burst_times = np.array(mean_burst_times)
+            burst_variabilities = np.array(burst_variabilities)
+            mean_aligned_variability = 1e3 * np.mean(burst_variabilities)
+            ax2.plot(mean_burst_times - np.min(mean_burst_times), 1e3 * burst_variabilities, 'ko')
+            title_str = 'Mean aligned variability = %.1f ms' % mean_aligned_variability
+            ax2.set_title(title_str)
+        ax2.set_xlabel('Time (s)')
+        ax2.set_ylabel('Burst time variability (ms)')
+
+    plt.show()
+
+
 if __name__ == '__main__':
     # if len(sys.argv) == 2:
     if len(sys.argv) == 1:
@@ -662,5 +818,6 @@ if __name__ == '__main__':
         assert len(clusters_of_interest) == len(burst_ids)
 
         # burst_interval_scaling_per_trial(info_name)
-        burst_sequence_alignment_per_trial(info_name)
+        # burst_sequence_alignment_per_trial(info_name)
+        burst_sequence_syllable_alignment(info_name)
         # pairwise_burst_distance_jitter(info_name)

@@ -74,6 +74,52 @@ def calculate_reference_syllables(egui_syllables):
     return reference_syllables
 
 
+def map_trial_time_to_trial_syllable(t_trial, trial_nr, egui_syllables):
+    '''
+    return syllable within which t_trial falls. If t_trial falls in gap, returns None.
+    :param t_trial:
+    :param trial_nr:
+    :param egui_syllables:
+    :return:
+    '''
+    for label in egui_syllables:
+        syllable = egui_syllables[label]
+        if trial_nr not in syllable.motifs:
+            continue
+        trial_index = np.where(syllable.motifs == trial_nr)[0]
+        trial_onset = syllable.onsets[trial_index]
+        trial_offset = syllable.offsets[trial_index]
+        # if trial_onset <= t_trial <= trial_offset:
+        #     return label, (t_trial - trial_onset)[0] # dirty hack to return non-array but float
+        # DIRTY HACK for C23:
+        for i in range(len(trial_onset)):
+            if trial_onset[i] <= t_trial <= trial_offset[i]:
+                return label, t_trial - trial_onset[i]
+
+    return None, None
+
+
+def map_trial_time_to_trial_syllable_onset(t_trial, trial_nr, egui_syllables):
+    '''
+    return syllable DURING/AFTER which t_trial occurs (i.e., including gap after syllable).
+    Assumes that t_trial does not go beyond motif end (no sanity checking done).
+    :param t_trial:
+    :param trial_nr:
+    :param egui_syllables:
+    :return:
+    '''
+    for label in egui_syllables:
+        syllable = egui_syllables[label]
+        if trial_nr not in syllable.motifs:
+            continue
+        trial_index = np.where(syllable.motifs == trial_nr)[0]
+        trial_onset = syllable.onsets[trial_index]
+        if trial_onset <= t_trial:
+            return label, (t_trial - trial_onset)[0] # dirty hack to return non-array but float
+
+    return None, None
+
+
 def map_trial_time_to_reference_syllable(t_trial, trial_nr, egui_syllables):
     reference_syllables = calculate_reference_syllables(egui_syllables)
 
