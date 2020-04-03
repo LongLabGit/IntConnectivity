@@ -5,6 +5,7 @@ import cPickle
 import numpy as np
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
+import matplotlib.cm, matplotlib.colors
 import ClusterProcessing as cp
 import utilities as utils
 
@@ -16,9 +17,9 @@ burst_ids = []
 bird_info['C21'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C21\clustered\experiment_C21_d1_alignment_reducedTemp.info'
 bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
 # use the following for motif-level variability
-# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
+bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
 # and this one for syllable-level variability
-bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
+# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
 bird_info['C24'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C24\experiment_C24_alignment.info'
 bird_info['C25'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C25\experiment_C25_alignment.info'
 
@@ -35,14 +36,19 @@ bird_bursts['C21'] = ([55, 304, 309, 695, 701, 702, 761, 779, 108, 696, 732, 759
 # clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938]
 # burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0]
 # incl. 22 low-frequency spontaneous
-# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
-#                         622, 639, 703, 738, 791, 832, 942]
-# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
-#              0, 0, 0, 0, 1, 0, 0]
+# bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
+#                        622, 639, 703, 738, 791, 832, 942],
+#                       [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
+#                        0, 0, 0, 0, 1, 0, 0])
 # remove unstable bursts
-bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833,
+# bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833,
+#                        622, 639, 703, 791, 832],
+#                       [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0,
+#                        0, 0, 0, 1, 0])
+# without 685/0 (end of motif; not beginning; due to MotifFinder template
+bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 791, 833,
                        622, 639, 703, 791, 832],
-                      [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0,
+                      [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 1, 2, 3, 0,
                        0, 0, 0, 1, 0])
 # clusters_of_interest = [547]
 # burst_ids = [0]
@@ -119,10 +125,22 @@ def _load_common_data(experiment_info_name):
         # select burst ID
         # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
         # not proofread
-        cluster_bursts.append(_clean_up_bursts(tmp_bursts[burst_ids[i]]))
+        clean_burst = _clean_up_bursts(tmp_bursts[burst_ids[i]])
+        checksum = 0
+        for trial_burst in clean_burst:
+            if len(trial_burst):
+                checksum = 1
+        if checksum:
+            cluster_bursts.append(clean_burst)
         # proofread
         if proofread:
-            cluster_bursts_proofread.append(_clean_up_bursts(tmp_bursts_proofed))
+            clean_burst_proofread = _clean_up_bursts(tmp_bursts_proofed)
+            checksum = 0
+            for trial_burst in clean_burst_proofread:
+                if len(trial_burst):
+                    checksum = 1
+            if len(clean_burst_proofread):
+                cluster_bursts_proofread.append(clean_burst_proofread)
 
     common_data = dict()
     common_data['motif'] = motif_finder_data
@@ -185,10 +203,14 @@ def _align_burst_sequence_pair(sequence1, sequence2):
     # p_opt = seq2_times[0] - seq1_times[0]
     # p_opt_, p_cov = curve_fit(lambda x, a: a * x, seq2_times - seq1_times[0], seq1_times)
     # p_opt = p_opt_, - seq1_times[0] * p_opt_
-    offset = np.min(seq1_times) - np.min(seq2_times)
-    # p_opt, p_cov = curve_fit(lambda x, a, b: a * x + b, seq2_times, seq1_times, bounds=((-np.inf, offset - 1e-6),
-    #                                                                                     (+np.inf, offset)))
-    # print 'offset = %.3f, p_opt[1] = %.3f' % (offset, p_opt[1])
+
+    # Alignment to first burst for Dezhe
+    # offset1 = np.min(seq1_times)
+    # offset2 = np.min(seq2_times)
+    # p_opt_, p_cov = curve_fit(lambda x, a: a * x, seq2_times - offset2, seq1_times - offset1)
+    # p_opt = (p_opt_[0], offset1, offset2)
+    # print 'offset1 = %.3f, p_opt[2] = %.3f, p_opt[0] = %.3f' % (offset1, p_opt[2], p_opt[0])
+
     p_opt, p_cov = curve_fit(lambda x, a, b: a * x + b, seq2_times, seq1_times)
     # p_opt, p_cov = curve_fit(lambda x, a, b, c: a * x * x + b * x + c, seq2_times, seq1_times)
 
@@ -202,6 +224,60 @@ def _align_burst_sequence_pair(sequence1, sequence2):
         residuals[burst_id] = res[i]
 
     return p_opt, residuals
+
+
+def _get_common_bursts(sequence1, sequence2):
+    common_bursts = []
+    for burst1 in sequence1:
+        if burst1 in sequence2:
+            common_bursts.append(burst1)
+
+    return common_bursts
+
+
+def _shuffle_syllable_times(eGUI_syllables, motif_finder_data):
+    """
+    take syllable times and move them around randomly; preserve motif length
+    :param eGUI_syllables:
+    :param motif_finder_data:
+    :return: new eGUI syllables object with shuffled start/stop times
+    """
+    new_syllables = dict()
+    n_motifs = len(motif_finder_data.start)
+
+    for syllable in eGUI_syllables:
+        onsets = []
+        offsets = []
+        valid_motifs = eGUI_syllables[syllable].motifs
+        shift = np.random.rand()
+        for i in range(n_motifs):
+            if i in valid_motifs:
+                # stupid hack for C23
+                index_ = np.where(valid_motifs == i)[0]
+                if len(index_) == 1: # I am too stupid to do proper indexing
+                    index = index_[0]
+                    tmp_onset = eGUI_syllables[syllable].onsets[index]
+                    tmp_offset = eGUI_syllables[syllable].offsets[index]
+                    motif_onset = motif_finder_data.start[i]
+                    motif_offset = motif_finder_data.stop[i]
+                    shift_range = -tmp_onset, motif_offset - motif_onset - tmp_offset
+                    syllable_shift = shift_range[0] + shift * (shift_range[1] - shift_range[0])
+                    onsets.append(tmp_onset + syllable_shift)
+                    offsets.append(tmp_offset + syllable_shift)
+                else: # C23
+                    for index in index_:
+                        tmp_onset = eGUI_syllables[syllable].onsets[index]
+                        tmp_offset = eGUI_syllables[syllable].offsets[index]
+                        motif_onset = motif_finder_data.start[i]
+                        motif_offset = motif_finder_data.stop[i]
+                        shift_range = -tmp_onset, motif_offset - motif_onset - tmp_offset
+                        syllable_shift = shift_range[0] + shift * (shift_range[1] - shift_range[0])
+                        onsets.append(tmp_onset + syllable_shift)
+                        offsets.append(tmp_offset + syllable_shift)
+        new_syllable = utils.Syllable(syllable, valid_motifs, np.array(onsets), np.array(offsets))
+        new_syllables[syllable] = new_syllable
+
+    return new_syllables
 
 
 def burst_interval_scaling_per_trial(experiment_info_name):
@@ -446,56 +522,60 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
         sequence_durations.append(tmp_seq[-1] - tmp_seq[0])
 
     # generate sequence ALIGNED TO FIRST SPIKE for each trial with first spike
-    trial_sequences = []
-    sequence_durations = []
-    n_motifs = len(motif_finder_data.start)
-    # find first burst
-    first_burst_id = []
-    for trial_nr in range(n_motifs):
-        tmp_seq = []
-        tmp_seq_burst_ids = []
-        for burst_id in range(len(cluster_bursts)):
-            burst = cluster_bursts[burst_id][trial_nr]
-            if len(burst):
-                # burst_time = burst[0]
-                # burst_time = 0.5 * (burst[0] + burst[-1])
-                burst_time = np.mean(burst)
-                tmp_seq.append(burst_time)
-                tmp_seq_burst_ids.append(burst_id)
-        first_burst_id.append(tmp_seq_burst_ids[np.argmin(tmp_seq)])
-    first_burst = np.bincount(first_burst_id).argmax()
-
-    n_motifs_first_burst = 0
+    # trial_sequences = dict()
+    # sequence_durations = []
+    # n_motifs = len(motif_finder_data.start)
+    # # find first burst
+    # first_burst_id = []
+    # for trial_nr in range(n_motifs):
+    #     tmp_seq = []
+    #     tmp_seq_burst_ids = []
+    #     for burst_id in range(len(cluster_bursts)):
+    #         burst = cluster_bursts[burst_id][trial_nr]
+    #         if len(burst):
+    #             # burst_time = burst[0]
+    #             # burst_time = 0.5 * (burst[0] + burst[-1])
+    #             burst_time = np.mean(burst)
+    #             tmp_seq.append(burst_time)
+    #             tmp_seq_burst_ids.append(burst_id)
+    #     if trial_nr == 1:
+    #         dummy = 1
+    #     first_burst_id.append(tmp_seq_burst_ids[np.argmin(tmp_seq)])
+    # first_burst = np.bincount(first_burst_id).argmax()
+    #
     motif_durations = []
+    # first_burst_trials = []
     for trial_nr in range(n_motifs):
         motif_duration = motif_finder_data.stop[trial_nr] - motif_finder_data.start[trial_nr]
         motif_durations.append(motif_duration)
-        sequence = {}
-        tmp_seq = []
-        first_burst_in_seq = False
-        for burst_id in range(len(cluster_bursts)):
-            if burst_id == first_burst:
-                first_burst_in_seq = True
-            burst = cluster_bursts[burst_id][trial_nr]
-            if len(burst):
-                # burst_time = burst[0]
-                # burst_time = 0.5 * (burst[0] + burst[-1])
-                burst_time = np.mean(burst)
-                sequence[burst_id] = burst_time
-                tmp_seq.append(burst_time)
-        if first_burst_in_seq:
-            trial_sequences.append(sequence)
-            tmp_seq.sort()
-            sequence_durations.append(tmp_seq[-1] - tmp_seq[0])
-            n_motifs_first_burst += 1
-    n_motifs = n_motifs_first_burst
+    #     sequence = {}
+    #     tmp_seq = []
+    #     first_burst_in_seq = False
+    #     for burst_id in range(len(cluster_bursts)):
+    #         burst = cluster_bursts[burst_id][trial_nr]
+    #         if len(burst):
+    #             if burst_id == first_burst:
+    #                 first_burst_in_seq = True
+    #             # burst_time = burst[0]
+    #             # burst_time = 0.5 * (burst[0] + burst[-1])
+    #             burst_time = np.mean(burst)
+    #             sequence[burst_id] = burst_time
+    #             tmp_seq.append(burst_time)
+    #     if first_burst_in_seq:
+    #         # trial_sequences.append(sequence)
+    #         trial_sequences[trial_nr] = sequence
+    #         tmp_seq.sort()
+    #         sequence_durations.append(tmp_seq[-1] - tmp_seq[0])
+    #         first_burst_trials.append(trial_nr)
 
     # calculate all pairwise sequence alignments
     # for each pairwise alignment, add residuals for each burst to residual sequence
     sequence_alignments = {}
     for trial1_nr in range(n_motifs):
+    # for trial1_nr in first_burst_trials:
         # for trial2_nr in range(trial1_nr + 1, n_motifs):
         for trial2_nr in range(n_motifs):
+        # for trial2_nr in first_burst_trials:
             alignment, residuals = _align_burst_sequence_pair(trial_sequences[trial1_nr], trial_sequences[trial2_nr])
             sequence_alignments[trial1_nr, trial2_nr] = alignment
             if residuals is None:
@@ -524,15 +604,16 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
     #     motif_duration = motif_finder_data.stop[i] - motif_finder_data.start[i]
     #     motif_durations.append(motif_duration)
     mean_motif_duration = np.mean(motif_durations)
-    ref_trial = 0
-    min_difference = abs(motif_durations[ref_trial] - mean_motif_duration)
-    for i in range(1, n_motifs):
+    ref_trial = None
+    min_difference = 1e6
+    for i in range(n_motifs):
+    # for i in first_burst_trials:
         tmp_difference = abs(motif_durations[i] - mean_motif_duration)
         if tmp_difference < min_difference:
             min_difference = tmp_difference
             ref_trial = i
 
-    # ref_trial = 1
+    # ref_trial = 0
     print 'Reference trial %d duration: %.0f ms; mean motif duration: %.0f ms' % (ref_trial, 1e3 * motif_durations[ref_trial],
                                                                                   1e3 * mean_motif_duration)
     # connect burst times in each trial with a transparent line, line density good visualization?
@@ -556,22 +637,30 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
     ax1 = plt.subplot(1, 2, 1)
     debug_plot = dict()
     sequence_ref_scales = []
+    highlight_trials = {0: 'r|', 7: 'b|', 11: 'g|'} # alignment visualization for figure
     for i in range(n_motifs):
+    # for i in first_burst_trials:
         # if i == ref_trial or i == 0:
         #     debug_plot[i] = []
         if i == ref_trial:
-            alignment = (1.0, 0.0)
-            # alignment = (0.0, 1.0, 0.0)
+            # alignment = (1.0, 0.0)
+            # alignment = (1.0, 0.0, 0.0)
+            alignment = sequence_alignments[ref_trial, i]
             sequence_ref_scales.append(1.0)
         else:
             try:
                 alignment_ = sequence_alignments[i, ref_trial]
                 if alignment_ is None:
+                    sequence_ref_scales.append(None)
                     continue
                 alignment = []
                 # we're inverting the fitted line
                 alignment.append(1.0 / alignment_[0])
                 alignment.append(-1.0 * alignment_[1] / alignment_[0])
+                # for first burst alignment
+                # alignment.append(1.0 / alignment_[0])
+                # alignment.append(alignment_[1])
+                # alignment.append(alignment_[2])
                 sequence_ref_scales.append(alignment[0])
             except KeyError:
                 alignment = sequence_alignments[ref_trial, i]
@@ -590,6 +679,7 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
                 continue
         raw_times = np.array(raw_times)
         aligned_times = alignment[0] * raw_times + alignment[1]
+        # aligned_times = alignment[0] * (raw_times - alignment[1])
         # aligned_times = alignment[0] * raw_times * raw_times + alignment[1] * raw_times + alignment[2]
         # keep track of all aligned burst times here for variability calculation later
         burst_count = 0
@@ -600,7 +690,15 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
                 # if i == ref_trial or i == 0:
                 #     if burst_id in trial_sequences[ref_trial] and burst_id in trial_sequences[0]:
                 #         debug_plot[i].append(aligned_times[burst_count - 1])
-        ax1.plot(aligned_times, sequence_id, 'ko', fillstyle='none', alpha=0.5)
+        # print '--------------------'
+        # print 'Trial %d' % i
+        # tmp_keys = trial_sequence.keys()
+        # tmp_keys.sort()
+        # print tmp_keys
+        if i in highlight_trials:
+            ax1.plot(aligned_times, sequence_id, highlight_trials[i], fillstyle='none', alpha=0.5)
+        # else:
+        #     ax1.plot(aligned_times, sequence_id, 'ko', fillstyle='none', alpha=0.5)
     # ax1.plot(debug_plot[0], debug_plot[1], 'ko')
     ax1.set_xlabel('Time (s)')
     ax1.set_ylabel('Cell ID')
@@ -610,8 +708,10 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
     for burst_id in all_burst_times:
         t_vec = all_burst_times[burst_id]
         if len(t_vec) > 1:
-            mean_burst_times.append(np.mean(all_burst_times[burst_id]))
-            burst_variabilities.append(np.std(all_burst_times[burst_id]))
+            mean_t_vec = np.mean(t_vec)
+            rmse = np.sqrt(np.dot(t_vec - mean_t_vec, t_vec - mean_t_vec) / len(t_vec))
+            mean_burst_times.append(mean_t_vec)
+            burst_variabilities.append(rmse)
     mean_burst_times = np.array(mean_burst_times)
     burst_variabilities = np.array(burst_variabilities)
     mean_aligned_variability = 1e3 * np.mean(burst_variabilities)
@@ -622,15 +722,26 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
     ax2.set_xlabel('Time (s)')
     ax2.set_ylabel('Burst time variability (ms)')
 
+    print 'Motif ref duration = %.3f ms' % (1e3 * motif_durations[ref_trial])
+    print 'Mean burst time (ms)\tBurst time RMSE (ms)'
+    motif_offset = motif_finder_data.start[ref_trial]
+    for i in range(len(mean_burst_times)):
+        print '%.3f\t%.3f' % (1e3 * (mean_burst_times[i] - motif_offset), 1e3 * burst_variabilities[i])
+
     # plot sequence scale factors vs. motif scale factors
     motif_ref_scales = []
     motif_ref_duration = motif_durations[ref_trial]
+    print 'Trial nr.\tMotif scale\tSequence scale'
     for i in range(n_motifs):
+    # for i in first_burst_trials:
         motif_duration = motif_durations[i]
         motif_scale = motif_ref_duration / motif_duration
         motif_ref_scales.append(motif_scale)
-        if motif_scale < 1.0 and sequence_ref_scales[i] > 1.0:
-            print 'Trial %d, motif scale = %.3f, sequence scale = %.3f' % (i, motif_scale, sequence_ref_scales[i])
+        if sequence_ref_scales[i] is None:
+            continue
+        print '%d\t%.3f\t%.3f' % (i, motif_scale, sequence_ref_scales[i])
+        # if motif_scale < 1.0 and sequence_ref_scales[i] > 1.0:
+        #     print 'Trial %d, motif scale = %.3f, sequence scale = %.3f' % (i, motif_scale, sequence_ref_scales[i])
     fig3 = plt.figure(3)
     # ax3 = plt.subplot(1, 2, 1)
     ax3 = plt.subplot(1, 1, 1)
@@ -680,35 +791,57 @@ def burst_sequence_syllable_alignment(experiment_info_name):
                     if burst_syl is None or burst_syl != syl:
                         continue
                     sequence[burst_id] = burst_syl_time
-            print 'Added sequence %d of length %d for syllable %s' % (trial_nr, len(sequence), syl)
+            # print 'Added sequence %d of length %d for syllable %s' % (trial_nr, len(sequence), syl)
+            tmp_burst_ids = sequence.keys()
+            tmp_burst_ids.sort()
+            # print tmp_burst_ids
             trial_syl_sequences[syl].append(sequence)
 
     # calculate all pairwise sequence alignments
     # for linear scaling, we need at least three bursts to estimate remaining variance
     syl_sequence_alignments = dict()
+    alignments_per_trial = dict()
     for syl in egui_syllables:
         syl_sequence_alignments[syl] = dict()
+        alignments_per_trial[syl] = dict()
         for trial1_nr in range(n_motifs):
             sequence1 = trial_syl_sequences[syl][trial1_nr]
+            alignment_count = 0
             # for trial2_nr in range(trial1_nr + 1, n_motifs):
             for trial2_nr in range(n_motifs):
                 sequence2 = trial_syl_sequences[syl][trial2_nr]
-                if len(sequence1) < 3 or len(sequence2) < 3:
+                common_bursts = _get_common_bursts(sequence1, sequence2)
+                if len(common_bursts) < 3:
                     syl_sequence_alignments[syl][trial1_nr, trial2_nr] = None
                     continue
                 alignment, residuals = _align_burst_sequence_pair(sequence1, sequence2)
                 syl_sequence_alignments[syl][trial1_nr, trial2_nr] = alignment
+                alignment_count += 1
                 # if residuals is None:
                 #     continue
                 # else:
                 #     for burst_id in residuals:
                 #         res = residuals[burst_id]
                 #         residual_sequence[burst_id].append(res)
+            alignments_per_trial[syl][trial1_nr] = alignment_count
 
     motif_durations = []
     for i in range(len(motif_finder_data.start)):
         motif_durations.append(motif_finder_data.stop[i] - motif_finder_data.start[i])
     mean_motif_duration = np.mean(motif_durations)
+    # here, we do the reference trial differently: we make sure we have valid alignments
+    syl_ref_trial = dict()
+    for syl in egui_syllables:
+        tmp_trial = 0
+        tmp_trial_count = 0
+        for trial1_nr in range(n_motifs):
+            if alignments_per_trial[syl][trial1_nr] > tmp_trial_count:
+                tmp_trial_count = alignments_per_trial[syl][trial1_nr]
+                tmp_trial = trial1_nr
+        syl_ref_trial[syl] = tmp_trial
+        print 'Syllable %s ref trial: %d' % (syl, tmp_trial)
+
+
     ref_trial = 0
     min_difference = abs(motif_durations[ref_trial] - mean_motif_duration)
     for i in range(1, n_motifs):
@@ -716,6 +849,8 @@ def burst_sequence_syllable_alignment(experiment_info_name):
         if tmp_difference < min_difference:
             min_difference = tmp_difference
             ref_trial = i
+    # for C23: choose ref trial = 2
+    # ref_trial = 2
 
     print 'Reference trial %d duration: %.0f ms; mean motif duration: %.0f ms' % (ref_trial, 1e3 * motif_durations[ref_trial],
                                                                                   1e3 * mean_motif_duration)
@@ -736,13 +871,13 @@ def burst_sequence_syllable_alignment(experiment_info_name):
         for i in range(n_motifs):
             # if i == ref_trial or i == 0:
             #     debug_plot[i] = []
-            if i == ref_trial:
+            if i == syl_ref_trial[syl]:
                 alignment = (1.0, 0.0)
                 # alignment = (0.0, 1.0, 0.0)
                 sequence_ref_scales.append(1.0)
             else:
                 try:
-                    alignment_ = syl_sequence_alignments[syl][i, ref_trial]
+                    alignment_ = syl_sequence_alignments[syl][i, syl_ref_trial[syl]]
                     if alignment_ is None:
                         continue
                     alignment = []
@@ -751,7 +886,7 @@ def burst_sequence_syllable_alignment(experiment_info_name):
                     alignment.append(-1.0 * alignment_[1] / alignment_[0])
                     sequence_ref_scales.append(alignment[0])
                 except KeyError:
-                    alignment = syl_sequence_alignments[syl][ref_trial, i]
+                    alignment = syl_sequence_alignments[syl][syl_ref_trial[syl], i]
                     if alignment is None:
                         sequence_ref_scales.append(None)
                         continue
@@ -785,10 +920,12 @@ def burst_sequence_syllable_alignment(experiment_info_name):
         mean_burst_times = []
         burst_variabilities = []
         for burst_id in all_burst_times:
-            t_vec = all_burst_times[burst_id]
+            t_vec = np.array(all_burst_times[burst_id])
             if len(t_vec) > 1:
-                mean_burst_times.append(np.mean(all_burst_times[burst_id]))
-                burst_variabilities.append(np.std(all_burst_times[burst_id]))
+                mean_t_vec = np.mean(t_vec)
+                rmse = np.sqrt(np.dot(t_vec - mean_t_vec, t_vec - mean_t_vec) / len(t_vec))
+                mean_burst_times.append(mean_t_vec)
+                burst_variabilities.append(rmse)
         if len(mean_burst_times):
             mean_burst_times = np.array(mean_burst_times)
             burst_variabilities = np.array(burst_variabilities)
@@ -798,6 +935,346 @@ def burst_sequence_syllable_alignment(experiment_info_name):
             ax2.set_title(title_str)
         ax2.set_xlabel('Time (s)')
         ax2.set_ylabel('Burst time variability (ms)')
+
+        syl_index = np.where(egui_syllables[syl].motifs == syl_ref_trial[syl])[0]
+        if not len(syl_index):
+            syl_index = 0
+        ref_syl_duration = egui_syllables[syl].offsets[syl_index] - egui_syllables[syl].onsets[syl_index]
+        print 'Syllable %s ref duration = %.3f ms' % (syl, ref_syl_duration[1])
+        print 'Mean burst time (ms)\tBurst time RMSE (ms)'
+        for i in range(len(mean_burst_times)):
+            print '%.3f\t%.3f' % (1e3 * mean_burst_times[i], 1e3 * burst_variabilities[i])
+
+    plt.show()
+
+
+def burst_sequence_syllable_alignment_shuffle(experiment_info_name):
+    '''
+    align sequences in each trial in individual syllables by linear fit
+    Fit residuals are a direct measure of burst timing variability
+    :param experiment_info_name:
+    :return:
+    '''
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+    common_data = _load_common_data(experiment_info_name)
+    motif_finder_data = common_data['motif']
+    cluster_bursts = common_data['bursts']
+
+    egui_syllables = utils.load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
+
+    shuffled_burst_times = dict()
+    shuffled_burst_variabilities = dict()
+    n_shuffle = 10000
+    for shuffle in range(n_shuffle):
+        shuffled_syllables = _shuffle_syllable_times(egui_syllables, motif_finder_data)
+        shuffled_burst_times[shuffle] = []
+        shuffled_burst_variabilities[shuffle] = []
+        # data structures for syllable-level sequences
+        trial_syl_sequences = dict()
+        for syl in shuffled_syllables:
+            trial_syl_sequences[syl] = []
+        n_motifs = len(motif_finder_data.start)
+        for trial_nr in range(n_motifs):
+            for syl in shuffled_syllables:
+                sequence = {}
+                for burst_id in range(len(cluster_bursts)):
+                    burst = cluster_bursts[burst_id][trial_nr]
+                    if len(burst):
+                        # burst_time = burst[0]
+                        # burst_time = 0.5 * (burst[0] + burst[-1])
+                        burst_time = np.mean(burst)
+                        burst_time_motif_aligned = burst_time - motif_finder_data.start[trial_nr]
+                        burst_syl, burst_syl_time = utils.map_trial_time_to_trial_syllable(burst_time_motif_aligned,
+                                                                                           trial_nr, shuffled_syllables)
+                        if burst_syl is None or burst_syl != syl:
+                            continue
+                        sequence[burst_id] = burst_syl_time
+                # print 'Added sequence %d of length %d for syllable %s' % (trial_nr, len(sequence), syl)
+                tmp_burst_ids = sequence.keys()
+                tmp_burst_ids.sort()
+                # print tmp_burst_ids
+                trial_syl_sequences[syl].append(sequence)
+
+        # calculate all pairwise sequence alignments
+        # for linear scaling, we need at least three bursts to estimate remaining variance
+        syl_sequence_alignments = dict()
+        alignments_per_trial = dict()
+        for syl in shuffled_syllables:
+            syl_sequence_alignments[syl] = dict()
+            alignments_per_trial[syl] = dict()
+            for trial1_nr in range(n_motifs):
+                sequence1 = trial_syl_sequences[syl][trial1_nr]
+                alignment_count = 0
+                # for trial2_nr in range(trial1_nr + 1, n_motifs):
+                for trial2_nr in range(n_motifs):
+                    sequence2 = trial_syl_sequences[syl][trial2_nr]
+                    common_bursts = _get_common_bursts(sequence1, sequence2)
+                    if len(common_bursts) < 3:
+                        syl_sequence_alignments[syl][trial1_nr, trial2_nr] = None
+                        continue
+                    alignment, residuals = _align_burst_sequence_pair(sequence1, sequence2)
+                    syl_sequence_alignments[syl][trial1_nr, trial2_nr] = alignment
+                    alignment_count += 1
+                    # if residuals is None:
+                    #     continue
+                    # else:
+                    #     for burst_id in residuals:
+                    #         res = residuals[burst_id]
+                    #         residual_sequence[burst_id].append(res)
+                alignments_per_trial[syl][trial1_nr] = alignment_count
+
+        motif_durations = []
+        for i in range(len(motif_finder_data.start)):
+            motif_durations.append(motif_finder_data.stop[i] - motif_finder_data.start[i])
+        mean_motif_duration = np.mean(motif_durations)
+        # here, we do the reference trial differently: we make sure we have valid alignments
+        syl_ref_trial = dict()
+        for syl in shuffled_syllables:
+            tmp_trial = 0
+            tmp_trial_count = 0
+            for trial1_nr in range(n_motifs):
+                if alignments_per_trial[syl][trial1_nr] > tmp_trial_count:
+                    tmp_trial_count = alignments_per_trial[syl][trial1_nr]
+                    tmp_trial = trial1_nr
+            syl_ref_trial[syl] = tmp_trial
+            print 'Syllable %s ref trial: %d' % (syl, tmp_trial)
+
+        ref_trial = 0
+        min_difference = abs(motif_durations[ref_trial] - mean_motif_duration)
+        for i in range(1, n_motifs):
+            tmp_difference = abs(motif_durations[i] - mean_motif_duration)
+            if tmp_difference < min_difference:
+                min_difference = tmp_difference
+                ref_trial = i
+        # for C23: choose ref trial = 2
+        # ref_trial = 2
+
+        print 'Reference trial %d duration: %.0f ms; mean motif duration: %.0f ms' % (ref_trial, 1e3 * motif_durations[ref_trial],
+                                                                                      1e3 * mean_motif_duration)
+        # don't choose any particular order for now
+        burst_order = np.array(range(len(cluster_bursts)))
+
+        # fig1 = plt.figure(1)
+        # fig2 = plt.figure(2)
+        syllables = shuffled_syllables.keys()
+        syllables.sort()
+        nr_syl = len(syllables)
+        for n, syl in enumerate(syllables):
+            # ax1 = fig1.add_subplot(2, nr_syl, n + 1)
+            sequence_ref_scales = []
+            all_burst_times = {}
+            for burst_id in range(len(cluster_bursts)):
+                all_burst_times[burst_id] = []
+            for i in range(n_motifs):
+                # if i == ref_trial or i == 0:
+                #     debug_plot[i] = []
+                if i == syl_ref_trial[syl]:
+                    alignment = (1.0, 0.0)
+                    # alignment = (0.0, 1.0, 0.0)
+                    sequence_ref_scales.append(1.0)
+                else:
+                    try:
+                        alignment_ = syl_sequence_alignments[syl][i, syl_ref_trial[syl]]
+                        if alignment_ is None:
+                            continue
+                        alignment = []
+                        # we're inverting the fitted line
+                        alignment.append(1.0 / alignment_[0])
+                        alignment.append(-1.0 * alignment_[1] / alignment_[0])
+                        sequence_ref_scales.append(alignment[0])
+                    except KeyError:
+                        alignment = syl_sequence_alignments[syl][syl_ref_trial[syl], i]
+                        if alignment is None:
+                            sequence_ref_scales.append(None)
+                            continue
+                        sequence_ref_scales.append(alignment[0])
+                trial_sequence = trial_syl_sequences[syl][i]
+                raw_times = []
+                sequence_id = []
+                for j, burst_id in enumerate(burst_order):
+                    try:
+                        raw_times.append(trial_sequence[burst_id])
+                        sequence_id.append(j)
+                    except KeyError:
+                        continue
+                raw_times = np.array(raw_times)
+                aligned_times = alignment[0] * raw_times + alignment[1]
+                # aligned_times = alignment[0] * raw_times * raw_times + alignment[1] * raw_times + alignment[2]
+                # keep track of all aligned burst times here for variability calculation later
+                burst_count = 0
+                for burst_id in burst_order:
+                    if burst_id in trial_sequence:
+                        all_burst_times[burst_id].append(aligned_times[burst_count])
+                        burst_count += 1
+                # ax1.plot(aligned_times, sequence_id, 'ko', fillstyle='none', alpha=0.5)
+            # ax1.set_xlabel('Time (s)')
+            # ax1.set_ylabel('Cell ID')
+            # title_str = 'Syllable %s' % syl
+            # ax1.set_title(title_str)
+
+            # now plot variability of aligned bursts in this syllable
+            # ax2 = fig1.add_subplot(2, nr_syl, n + nr_syl + 1)
+            mean_burst_times = []
+            burst_variabilities = []
+            for burst_id in all_burst_times:
+                t_vec = np.array(all_burst_times[burst_id])
+                if len(t_vec) > 1:
+                    mean_t_vec = np.mean(t_vec)
+                    rmse = np.sqrt(np.dot(t_vec - mean_t_vec, t_vec - mean_t_vec) / len(t_vec))
+                    mean_burst_times.append(mean_t_vec)
+                    burst_variabilities.append(rmse)
+            if len(mean_burst_times):
+                mean_burst_times = np.array(mean_burst_times)
+                burst_variabilities = np.array(burst_variabilities)
+                mean_aligned_variability = 1e3 * np.mean(burst_variabilities)
+                shuffled_burst_times[shuffle].extend(1e3 * (mean_burst_times - np.min(mean_burst_times)))
+                shuffled_burst_variabilities[shuffle].extend(1e3 * burst_variabilities)
+                # ax2.plot(mean_burst_times - np.min(mean_burst_times), 1e3 * burst_variabilities, 'ko')
+                # title_str = 'Mean aligned variability = %.1f ms' % mean_aligned_variability
+                # ax2.set_title(title_str)
+            # ax2.set_xlabel('Time (s)')
+            # ax2.set_ylabel('Burst time variability (ms)')
+
+            # syl_index = np.where(shuffled_syllables[syl].motifs == syl_ref_trial[syl])[0]
+            # if not len(syl_index):
+            #     syl_index = 0
+            # ref_syl_duration = shuffled_syllables[syl].offsets[syl_index] - shuffled_syllables[syl].onsets[syl_index]
+            # print 'Syllable %s ref duration = %.3f ms' % (syl, ref_syl_duration[1])
+            # print 'Mean burst time (ms)\tBurst time RMSE (ms)'
+            # for i in range(len(mean_burst_times)):
+            #     print '%.3f\t%.3f' % (1e3 * mean_burst_times[i], 1e3 * burst_variabilities[i])
+
+    # plt.show()
+    out_name = os.path.join(experiment_info['Motifs']['DataBasePath'], 'shuffled_syllable_alignment.csv')
+    with open(out_name, 'w') as out_file:
+        header = 'Mean burst time (ms),Burst time RMSE (ms),Shuffle ID\n'
+        out_file.write(header)
+        for shuffle_id in shuffled_burst_times:
+            times = shuffled_burst_times[shuffle_id]
+            vars = shuffled_burst_variabilities[shuffle_id]
+            for t, v in zip(times, vars):
+                line = '%.2f,%.2f,%d\n' % (t, v, shuffle_id)
+                out_file.write(line)
+
+
+def burst_sequence_visualization(experiment_info_name):
+    '''
+    visualize entire sequences in each trial by aligning to first burst
+    Fit residuals are a direct measure of burst timing variability
+    :param experiment_info_name: experiment info file
+    :return: None
+    '''
+    common_data = _load_common_data(experiment_info_name)
+    motif_finder_data = common_data['motif']
+    cluster_bursts = common_data['bursts']
+
+    # generate sequence for each trial
+    n_motifs = len(motif_finder_data.start)
+    # trial_sequences_array = np.nan * np.ones((n_motifs, len(cluster_bursts) - 1)) # HACK for C23 - fix
+    trial_sequences_array = np.nan * np.ones((n_motifs, len(cluster_bursts))) # HACK for C23 - fix
+    trial_sequences = []
+    sequence_durations = []
+    motif_durations = []
+    for trial_nr in range(trial_sequences_array.shape[0]):
+        sequence = {}
+        tmp_seq = []
+        # for burst_id in range(1, len(cluster_bursts)): # HACK for C23 - fix
+        for burst_id in range(len(cluster_bursts)): # HACK for C23 - fix
+            burst = cluster_bursts[burst_id][trial_nr]
+            if len(burst):
+                # burst_time = burst[0]
+                # burst_time = 0.5 * (burst[0] + burst[-1])
+                burst_time = np.mean(burst)
+                sequence[burst_id] = burst_time
+                tmp_seq.append(burst_time)
+                # trial_sequences_array[trial_nr, burst_id-1] = burst_time # HACK for C23 - fix
+                trial_sequences_array[trial_nr, burst_id] = burst_time # HACK for C23 - fix
+        trial_sequences.append(sequence)
+        tmp_seq.sort()
+
+    trial_sequences_shifted = []
+    for trial_nr in range(trial_sequences_array.shape[0]):
+        if trial_sequences_array[trial_nr, 0] > 0:
+            offset = trial_sequences_array[trial_nr, 0]
+            trial_sequences_shifted.append(trial_sequences_array[trial_nr, :] - offset)
+    trial_sequences_shifted = np.array(trial_sequences_shifted)
+    mean_sequence = np.nanmean(trial_sequences_shifted, axis=0)
+    sequence_order = np.argsort(mean_sequence)
+    mean_sequence = mean_sequence[sequence_order]
+    mean_sequence -= mean_sequence[0]
+    trial_sequences_shifted = trial_sequences_shifted[:, sequence_order]
+    burst_sequences_plotted = np.isfinite(trial_sequences_shifted[:, 0])
+    trial_sequences_shifted = trial_sequences_shifted[burst_sequences_plotted, :]
+    trial_sequences_shifted = (trial_sequences_shifted.transpose() - trial_sequences_shifted[:, 0]).transpose()
+    mean_sequence = np.nanmean(trial_sequences_shifted, axis=0)
+
+    # plot deviations from mean sequence as in Glaze & Troyer, 2006
+    fig1 = plt.figure(1)
+    ax1 = fig1.add_subplot(1, 1, 1)
+    for i in range(trial_sequences_shifted.shape[0]):
+        deviation_sequence = 1e3 * (trial_sequences_shifted[i, :] - mean_sequence)
+        sel = np.isfinite(deviation_sequence)
+        ax1.plot(1e3 * mean_sequence[sel], deviation_sequence[sel], 'ko-')
+    ax1.set_xlabel('Mean sequence time (ms)')
+    ax1.set_ylabel('Deviation (ms)')
+
+    deviation_sequences = 1e3 * (trial_sequences_shifted - mean_sequence)
+    var_sequence = np.nanstd(deviation_sequences, axis=0)
+    fig2 = plt.figure(2)
+    ax2 = fig2.add_subplot(1, 1, 1)
+    ax2.plot(1e3 * mean_sequence, var_sequence, 'ko-')
+    ax2.set_xlabel('Mean sequence time (ms)')
+    ax2.set_ylabel('Timing variability (ms)')
+
+    # plot relationship between sequence duration and motif duration
+    # C22: first burst - really from previous motif; last two bursts: outside annotated motif (within premotor delay,
+    # but this gets complicated...)
+    sequence_durations.append(tmp_seq[-3] - tmp_seq[1])
+    motif_durations.append(motif_finder_data.stop[trial_nr] - motif_finder_data.start[trial_nr])
+    sequence_durations = 1e3 * np.array(sequence_durations)
+    motif_durations = 1e3 * np.array(motif_durations)
+    fig3 = plt.figure(3)
+    ax3 = fig3.add_subplot(1, 1, 1)
+    ax3.plot(sequence_durations, motif_durations, 'ko')
+    ax3.set_xlabel('Sequence duration (ms)')
+    ax3.set_ylabel('Motif duration (ms)')
+
+    # # also plot syllable durations, sorted by overall length,
+    # # and syllable deviation plots (as in Glaze & Troyer, 2006),
+    # # as well as relationship between burst SD slopes
+    # # and syllable SD slopes
+    # with open(experiment_info_name, 'r') as data_file:
+    #     experiment_info = ast.literal_eval(data_file.read())
+    # egui_syllables = utils.load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
+    # syllable_labels = egui_syllables.keys()
+    # syllable_labels.sort()
+    # syllable_sequences_array = np.nan * np.ones((n_motifs, 2 * len(egui_syllables))) # store syllable on-/offset
+    # for i, label in enumerate(syllable_labels):
+    #     syllable = egui_syllables[label]
+    #     for trial_nr in range(n_motifs):
+    #         if trial_nr not in syllable.motifs:
+    #             continue
+    #         trial_index = np.where(syllable.motifs == trial_nr)[0]
+    #         syllable_sequences_array[trial_nr, 2 * i] = syllable.onsets[trial_index]
+    #         syllable_sequences_array[trial_nr, 2 * i + 1] = syllable.offsets[trial_index]
+    #
+    # good_syllable_trials = np.isfinite(np.sum(syllable_sequences_array, axis=1))
+    # combined_trials = good_syllable_trials * burst_sequences_plotted
+    # # print combined_trials
+    # plot_syllable_sequences = syllable_sequences_array[good_syllable_trials, :]
+    # # align all first syllable onsets
+    # for i in range(plot_syllable_sequences.shape[0]):
+    #     plot_syllable_sequences[i, :] -= plot_syllable_sequences[i, 0]
+    # mean_syllable_sequence = np.mean(plot_syllable_sequences, axis=0)
+    # fig3 = plt.figure(3)
+    # ax3_1 = fig3.add_subplot(1, 2, 1)
+    # ax3_2 = fig3.add_subplot(1, 2, 2)
+    # for i in range(plot_syllable_sequences.shape[0]):
+    #     ax3_1.vlines(plot_syllable_sequences[i], i - 0.5, i + 0.5, 'k')
+    #     deviation_sequence = 1e3 * (plot_syllable_sequences[i, :] - mean_syllable_sequence)
+    #     sel = np.isfinite(deviation_sequence)
+    #     ax3_2.plot(1e3 * mean_syllable_sequence[sel], deviation_sequence[sel], 'ko-')
 
     plt.show()
 
@@ -818,6 +1295,8 @@ if __name__ == '__main__':
         assert len(clusters_of_interest) == len(burst_ids)
 
         # burst_interval_scaling_per_trial(info_name)
-        # burst_sequence_alignment_per_trial(info_name)
-        burst_sequence_syllable_alignment(info_name)
+        burst_sequence_alignment_per_trial(info_name)
+        # burst_sequence_syllable_alignment(info_name)
+        # burst_sequence_syllable_alignment_shuffle(info_name)
         # pairwise_burst_distance_jitter(info_name)
+        # burst_sequence_visualization(info_name)

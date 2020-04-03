@@ -9,28 +9,63 @@ from matplotlib import cm, colors
 import ClusterProcessing as cp
 import utilities as utils
 
+bird_bursts = dict()
+bird_info = dict()
+clusters_of_interest = []
+burst_ids = []
+
+bird_info['C21'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C21\clustered\experiment_C21_d1_alignment_reducedTemp.info'
+# bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
+bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment_non-RA.info'
+# use the following for motif-level variability
+# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
+# and this one for syllable-level variability
+bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
+bird_info['C24'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C24\experiment_C24_alignment.info'
+bird_info['C25'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C25\experiment_C25_alignment.info'
+
 # C21
 # clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929]
 # burst_ids = [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0]
 # incl. 22 low-frequency spontaneous
 # clusters_of_interest = [55, 304, 309, 522, 695, 701, 702, 761, 779, 1, 108, 209, 696, 710, 732, 759, 764, 772, 929, 767]
 # burst_ids = [0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3, 0, 1, 1, 2, 2, 0, 0]
+# all non-HVC(RA) PNs
+bird_bursts['C21'] = ([58, 388, 741, 108, 209, 46, 46, 128, 128, 128, 266, 266, 353, 353, 454, 454, 685, 685,
+                       728, 728, 733, 733, 733, 738, 738, 738, 917, 917, 1, 1, 9, 9, 9, 696, 696, 696, 696, 732, 732,
+                       759, 759, 764, 764, 772, 772],
+                      [0, 0, 0, 1, 1, 0, 1, 0, 1, 2, 0, 1, 0, 1, 0, 1, 0, 1,
+                       0, 1, 0, 1, 2, 0, 1, 2, 0, 1, 0, 2, 1, 2, 3, 0, 1, 2, 4, 0, 2,
+                       0, 2, 0, 1, 0, 1])
 # remove unstable bursts
-# clusters_of_interest = [55, 304, 309, 695, 701, 702, 761, 779, 108, 696, 732, 759, 764, 772, 767]
-# burst_ids = [0, 0, 0, 0, 1, 0, 0, 0, 0, 3, 1, 1, 2, 2, 0]
+# bird_bursts['C21'] = ([55, 304, 309, 695, 701, 702, 761, 779, 108, 696, 732, 759, 764, 772, 767],
+#                       [0, 0, 0, 0, 1, 0, 0, 0, 0, 3, 1, 1, 2, 2, 0])
 # C22
 # clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938]
 # burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0]
 # incl. 22 low-frequency spontaneous
-# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
-#                         622, 639, 703, 738, 791, 832, 942]
-# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
-#              0, 0, 0, 0, 1, 0, 0]
+# bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833, 938,
+#                        622, 639, 703, 738, 791, 832, 942],
+#                       [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
+#                        0, 0, 0, 0, 1, 0, 0])
+# all non-HVC(RA) PNs
+bird_bursts['C22'] = ([30, 69, 71, 103, 126, 205, 225, 258, 354, 370, 497, 546, 734, 765, 786, 803, 252, 252, 252, 252,
+                       288, 288, 288, 305, 305, 318, 318, 318, 318, 318, 339, 339, 339, 532, 532, 532, 532,
+                       603, 603, 603, 604, 604, 607, 607, 607, 607, 623, 623, 650, 650, 650, 657, 657, 657, 657,
+                       694, 694, 694, 694, 719, 719, 723, 723, 741, 741, 761, 761, 804, 804, 810, 810, 817, 817, 817,
+                       833, 833, 945, 945, 945],
+                      [1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3,
+                       0, 1, 2, 0, 1, 0, 1, 2, 3, 4, 0, 1, 2, 0, 1, 2, 3,
+                       0, 1, 2, 0, 1, 0, 1, 2, 3, 0, 1, 0, 3, 4, 0, 1, 2, 3,
+                       0, 1, 2, 3, 0, 1, 0, 1, 0, 1, 0, 1, 1, 3, 0, 1, 0, 2, 3,
+                       1, 2, 0, 1, 2])
+# bird_bursts['C22'] = ([547],
+#                       [0])
 # remove unstable bursts
-# clusters_of_interest = [30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833,
-#                         622, 639, 703, 791, 832]
-# burst_ids = [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0,
-#              0, 0, 0, 1, 0]
+# bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 650, 685, 685, 685, 791, 833,
+#                        622, 639, 703, 791, 832],
+#                       [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0,
+#                        0, 0, 0, 1, 0])
 # clusters_of_interest = [547]
 # burst_ids = [0]
 # C23
@@ -41,38 +76,60 @@ import utilities as utils
 # clusters_of_interest = [776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376]
 # burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0]
 # incl. 22 low-frequency spontaneous
-# clusters_of_interest = [776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376,
-#                         670, 786, 941, 777, 938, 1093, 1330, 1154]
-# burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0,
-#              1, 1, 1, 3, 3, 1, 1, 3]
+# bird_bursts['C23'] = ([776,  842, 1092, 1154, 1166, 1205, 1220, 1267, 1268, 1302, 1303, 1330, 1340, 1376,
+#                         670, 786, 941, 777, 938, 1093, 1330, 1154],
+#                        [3, 2, 1, 2, 2, 3, 2, 1, 3, 1, 1, 1, 3, 0,
+#                         1, 1, 1, 3, 3, 1, 1, 3])
+# all non-HVC(RA) PNs
+bird_bursts['C23'] = ([883, 918, 1073, 777, 841, 1288, 1298, 1220, 387, 983, 983, 807, 807, 1116, 1116, 1129, 1129,
+                       1175, 1175, 1247, 1283, 1283, 1205, 1205, 1257, 1257, 1340, 1340, 1374, 1374],
+                       [0, 0, 0, 2, 2, 0, 0, 3, 3, 2, 3, 3, 4, 2, 3, 2, 3,
+                        1, 2, 2, 2, 3, 4, 5, 3, 4, 4, 5, 2, 3])
 # remove unstable bursts
-# clusters_of_interest = [776, 842, 1092, 1154, 1166, 1205, 1220, 1267, 1303, 1330, 1340,
-#                         670, 786, 777, 1330, 1154]
-# burst_ids = [3, 2, 1, 2, 2, 3, 2, 1, 1, 1, 3,
-#              1, 1, 3, 1, 3]
+# bird_bursts['C23'] = ([776, 842, 1092, 1154, 1166, 1205, 1220, 1267, 1303, 1330, 1340,
+#                        670, 786, 777, 1330, 1154],
+#                       [3, 2, 1, 2, 2, 3, 2, 1, 1, 1, 3,
+#                        1, 1, 3, 1, 3])
 # C24
 # clusters_of_interest = [77, 89, 91, 264, 563, 743, 753, 813, 853]
 # burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0]
 # incl. 22 low-frequency spontaneous
-# clusters_of_interest = [77, 89, 91, 264, 563, 743, 753, 813, 853,
-#                         360, 751, 867, 904]
-# burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0,
-#              0, 0, 0, 0]
+# bird_bursts['C24'] = ([77, 89, 91, 264, 563, 743, 753, 813, 853,
+#                         360, 751, 867, 904],
+#                       [2, 1, 2, 0, 1, 1, 1, 1, 0,
+#                         0, 0, 0, 0])
+# all non-HVC(RA) PNs
+bird_bursts['C24'] = ([5, 14, 23, 31, 55, 89, 148, 159, 196, 200, 231, 249, 264, 273, 330, 336, 349, 459, 478, 558, 563,
+                       564, 720, 725, 743, 812, 813, 824, 827, 848, 853, 858, 867, 871, 883, 884, 903, 77, 77,
+                       91, 91, 91, 190, 190, 221, 221, 286, 286, 308, 308, 308, 311, 311, 311, 388, 388, 451, 451, 451,
+                       616, 616, 653, 653, 743, 743, 753, 753, 767, 767, 767, 801, 801, 801, 804, 804, 804, 880, 880,
+                       908, 908],
+                      [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                       0, 0, 0, 2, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1,
+                       0, 1, 3, 0, 1, 0, 1, 0, 1, 0, 1, 2, 0, 1, 2, 0, 1, 0, 1, 2,
+                       0, 1, 0, 2, 0, 2, 0, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,
+                       0, 1])
 # remove unstable bursts
-clusters_of_interest = [77, 89, 91, 264, 563, 743, 753, 813, 853,
-                        751, 867, 904]
-burst_ids = [2, 1, 2, 0, 1, 1, 1, 1, 0,
-             0, 0, 0]
+# bird_bursts['C24'] = ([77, 89, 91, 264, 563, 743, 753, 813, 853,
+#                        751, 867, 904],
+#                       [2, 1, 2, 0, 1, 1, 1, 1, 0,
+#                        0, 0, 0])
 # C25
 # clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
 # burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
 # incl. 22 low-frequency spontaneous
-# clusters_of_interest = [110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432]
-# burst_ids = [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
+# bird_bursts['C25'] = ([110, 130, 159, 189, 521, 240, 289, 310, 346, 366, 412, 432],
+#                       [0, 0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1])
+# all non-HVC(RA) PNs
+bird_bursts['C25'] = ([16, 50, 77, 79, 95, 104, 119, 139, 159, 187, 189, 194, 208, 229, 234, 339, 378, 386, 391, 412,
+                       418, 432, 442, 456, 465, 469, 476, 72, 72, 163, 163, 216, 216, 216, 240, 240, 289, 289, 310, 310,
+                       320, 320, 325, 325, 346, 346, 384, 384, 443, 443, 453, 453, 471, 471],
+                      [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1,
+                       0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 2, 0, 2, 0, 2, 1, 2,
+                       0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
 # remove unstable bursts
-# clusters_of_interest = [110, 130, 189, 521, 240, 289, 310, 346, 366, 412, 432]
-# burst_ids = [0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1]
-assert len(clusters_of_interest) == len(burst_ids)
+# bird_bursts['C25'] = ([110, 130, 189, 521, 240, 289, 310, 346, 366, 412, 432],
+#                       [0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1])
 
 
 def _save_individual_syllables_for_matlab(experiment_info, motif_ids, burst_onset_times, syllable_onset_times, syllable_offset_times,
@@ -128,7 +185,7 @@ def _save_mean_syllables_for_matlab(experiment_info, syllable_burst_onsets, syll
                                     motif_burst_onsets, syllable_burst_labels, reference_syllables):
     print 'Saving mean burst onset times in syllables in matlab format...'
     cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-    summary_suffix = 'motif_syllable_aligned_mean_burst_onset_times.mat'
+    summary_suffix = 'motif_syllable_aligned_mean_burst_onset_times_non-RA.mat'
     summary_fname = os.path.join(cluster_folder, 'burst_identity', summary_suffix)
     spacetime = {} # Vigi format
 
@@ -170,7 +227,7 @@ def _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_varia
                            motif_offset_times):
     print 'Saving mean burst onset times in motif in matlab format...'
     cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-    summary_suffix = 'motif_aligned_mean_burst_onset_times.mat'
+    summary_suffix = 'motif_aligned_mean_burst_onset_times_non-RA.mat'
     summary_fname = os.path.join(cluster_folder, 'burst_identity', summary_suffix)
     spacetime = {} # Vigi format
 
@@ -215,13 +272,16 @@ def syllable_aligned_bursts(experiment_info_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get full audio
-    audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
-    audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
+    # audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
+    # audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
     # get template audio
     template_fs, template_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_audio_trace(template_data, -1.0, 1.0)
     # get syllables from eGUI
     egui_syllables = utils.load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
+
+    # UGLY HACK for C22 2nd alignment for non-RA
+    # C22_nonRA_motifs = [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12]
 
     # # get clusters
     # data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -325,11 +385,25 @@ def syllable_aligned_bursts(experiment_info_name):
         burst = cluster_bursts[j]
         cluster_syllables = []
         cluster_burst_onsets = []
+        # UGLY HACK for C22 non-RA
+        # if len(burst) == n_motifs:
+        #     motif_iter = range(n_motifs)
+        # else:
+        #     motif_iter = C22_nonRA_motifs
+        # END UGLY HACK for C22 non-RA
         for i in range(n_motifs):
             motif_start = motif_finder_data.start[i]
             motif_stop = motif_finder_data.stop[i]
+            # UGLY HACK for C22 non-RA
+            # burst_times_motif = burst[motif_iter[i]][0] - motif_start
+            # END UGLY HACK for C22 non-RA
+            # following line for normal version
             burst_times_motif = burst[i][0] - motif_start
             if len(burst_times_motif):
+                # UGLY HACK for C22 non-RA
+                # syllable, ref_time = utils.map_trial_time_to_reference_syllable(burst_times_motif[0], C22_nonRA_motifs[i], egui_syllables)
+                # END UGLY HACK for C22 non-RA
+                # following line for normal version
                 syllable, ref_time = utils.map_trial_time_to_reference_syllable(burst_times_motif[0], i, egui_syllables)
                 if syllable is None:
                     continue
@@ -380,11 +454,14 @@ def motif_aligned_bursts(experiment_info_name):
     motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
                                                            experiment_info['Motifs']['MotifFilename']))
     # get full audio
-    audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
-    audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
+    # audio_name = os.path.join(experiment_info['Motifs']['DataBasePath'], experiment_info['Motifs']['AudioFilename'])
+    # audio_fs, audio_data = cp.reader.read_audiofile(audio_name)
     # get template audio
     template_fs, template_data = cp.reader.read_audiofile(experiment_info['Motifs']['TemplateFilename'])
     plot_audio = utils.normalize_audio_trace(template_data, -1.0, 1.0)
+
+    # UGLY HACK for C22 2nd alignment for non-RA
+    # C22_nonRA_motifs = [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12]
 
     # # get clusters
     # data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -430,8 +507,11 @@ def motif_aligned_bursts(experiment_info_name):
     cmap_name = 'gist_ncar'
     cmap = cm.get_cmap(cmap_name)
     color_norm = colors.Normalize(0, len(clusters_of_interest) - 1)
+    fig = plt.figure(0)
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_xlim([0, 1])
     for j, cluster_id in enumerate(clusters_of_interest):
-        fig = plt.figure(2*j)
+        # fig = plt.figure(2*j)
         if proofread:
             burst_proofed = cluster_bursts_proofread[j]
         else:
@@ -439,10 +519,22 @@ def motif_aligned_bursts(experiment_info_name):
         cluster_burst_onsets = []
         cluster_spikes = []
         spike_times_flattened = []
+        # UGLY HACK for C22 non-RA
+        # if len(burst) == n_motifs:
+        #     motif_iter = range(n_motifs)
+        # else:
+        #     motif_iter = C22_nonRA_motifs
+        # END UGLY HACK for C22 non-RA
         for i in range(n_motifs):
+            # if len(burst_proofed[i][0]):
+            # UGLY HACK for C22 non-RA
+            # if len(burst[motif_iter[i]][0]):
+            # END UGLY HACK for C22 non-RA
+            # following line for normal version
             if len(burst[i][0]):
                 motif_start = motif_finder_data.start[i]
                 motif_warp = motif_finder_data.warp[i]
+                # motif_warp = 1.0 # Show slowest and longest sequence in figure to illustrate global sequence variance
                 if proofread:
                     # reverse this: aligned_times = burst_spikes_proofed[trial] + burst_spike_times[0] - pre_window * 1.0e-3
                     # pre_window = 5.0
@@ -454,40 +546,49 @@ def motif_aligned_bursts(experiment_info_name):
                     burst_times_motif = (burst_proofed[i][0] - motif_start) / motif_warp
                 # not proofread
                 else:
+                    # UGLY HACK for C22 non-RA
+                    # burst_times_motif = (burst[motif_iter[i]][0] - motif_start) / motif_warp
+                    # END UGLY HACK for C22 non-RA
+                    # following line for normal version
                     burst_times_motif = (burst[i][0] - motif_start) / motif_warp
             # if len(burst_times_motif):
                 cluster_burst_onsets.append(burst_times_motif[0])
+                ax.plot(burst_times_motif[0], i, color=cmap(color_norm(j)), linewidth=0.5)
                 cluster_spikes.append(burst_times_motif)
                 # spike_times_flattened.extend(tmp1)
                 if proofread:
                     spike_times_flattened.extend(burst_proofed[i][0])
                 else:
+                    # UGLY HACK for C22 non-RA
+                    # spike_times_flattened.extend(burst[motif_iter[i]][0])
+                    # END UGLY HACK for C22 non-RA
+                    # following line for normal version
                     spike_times_flattened.extend(burst[i][0])
             else:
                 cluster_spikes.append([])
 
-        ax = plt.subplot(1, 1, 1)
+        # ax = plt.subplot(1, 1, 1)
         # ax.eventplot(cluster_spikes, colors='k', linewidths=0.5)
-        ax.eventplot(cluster_spikes, colors=cmap(color_norm(j)), linewidths=0.5)
+        # ax.eventplot(cluster_spikes, colors=cmap(color_norm(j)), linewidths=0.5)
         t_audio = np.linspace(0.0, motif_finder_data.stop[0] - motif_finder_data.start[0], len(plot_audio))
         # not proofread
         # ax.plot(t_audio, plot_audio + len(cluster_burst_onsets) + 2, 'k', linewidth=0.5)
         # proofread
-        ax.plot(t_audio, plot_audio + n_motifs + 2, 'k', linewidth=0.5)
+        # ax.plot(t_audio, plot_audio + n_motifs + 2, 'k', linewidth=0.5)
         onset_var = np.std(cluster_burst_onsets) * 1e3
         # if np.mean(cluster_burst_onsets) > 0.4:
         #     burst_onset_times.append(np.mean(cluster_burst_onsets))
         #     burst_onset_variances.append(onset_var)
         burst_onset_times.append(np.mean(cluster_burst_onsets))
         burst_onset_variances.append(onset_var)
-        title_str = 'Burst onset %d of cluster %d - var = %.1f ms' % (burst_ids[j], cluster_id, onset_var)
+        # title_str = 'Burst onset %d of cluster %d - var = %.1f ms' % (burst_ids[j], cluster_id, onset_var)
         # print '%s\t%d\t%.1f' % (cluster_id, burst_ids[j], onset_var)
         print '%.3f\t%.1f' % (np.mean(cluster_burst_onsets), onset_var)
-        ax.set_title(title_str)
-        fig_suffix = 'Cluster_%d_burst_%d_motif_aligned.pdf' % (cluster_id, burst_ids[j])
-        fig_name = os.path.join(cluster_folder, 'burst_identity', fig_suffix)
-        plt.savefig(fig_name)
-        plt.show()
+        # ax.set_title(title_str)
+        # fig_suffix = 'Cluster_%d_burst_%d_motif_aligned_no_warping.pdf' % (cluster_id, burst_ids[j])
+        # fig_name = os.path.join(cluster_folder, 'burst_identity', fig_suffix)
+        # plt.savefig(fig_name)
+        # plt.show()
 
         cluster = clusters[cluster_id]
         raw_burst_waveforms = cp.reader.load_cluster_waveforms_from_spike_times(experiment_info, channel_shank_map,
@@ -522,6 +623,12 @@ def motif_aligned_bursts(experiment_info_name):
     motif_times = 0.0, motif_finder_data.stop[0] - motif_finder_data.start[0]
     _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_variances, [motif_times[0]],
                            [motif_times[1]])
+
+    # # ugly HACK for C23: because we're using the second part (BA), shift motif onset to first burst time
+    # tmp_offset = 0.428
+    # motif_times = 0.0, motif_finder_data.stop[0] - motif_finder_data.start[0] - tmp_offset
+    # _save_motif_for_matlab(experiment_info, np.array(burst_onset_times) - tmp_offset, burst_onset_variances,
+    #                        [motif_times[0]], [motif_times[1]])
 
 
 def manual_burst_proofing(experiment_info_name):
@@ -667,9 +774,60 @@ def manual_burst_proofing(experiment_info_name):
             cPickle.dump(cluster_burst, summary_burst_file_out, cPickle.HIGHEST_PROTOCOL)
 
 
+def fix_motifs(experiment_info_name):
+    '''
+    Stupid fix to remove trials from already clicked burst
+    because we re-aligned motifs for C22 (better alignment though)
+    '''
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+
+    # # get clusters
+    # data_folder = experiment_info['SiProbe']['DataBasePath']
+    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
+    # C22
+    keep_motifs = [0, 2, 3, 4, 7, 10, 11, 13, 14, 15, 16]
+    load_clusters = np.unique(clusters_of_interest)
+    for i, cluster_id in enumerate(load_clusters):
+        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
+        summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
+        with open(summary_burst_fname, 'rb') as summary_burst_file:
+            # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
+            old_bursts = cPickle.load(summary_burst_file)
+        nr_old_trials = len(old_bursts[0])
+        if nr_old_trials == 14:
+            continue
+        new_bursts = dict()
+        for burst_id in old_bursts:
+            new_bursts[burst_id] = []
+            for keep_id in keep_motifs:
+                new_bursts[burst_id].append(old_bursts[burst_id][keep_id])
+
+        backup_burst_suffix = 'burst_times_waveforms_cluster_%d_old_motifs.pkl' % cluster_id
+        backup_burst_fname = os.path.join(cluster_folder, 'burst_identity', backup_burst_suffix)
+        with open(backup_burst_fname, 'wb') as backup_burst_file_out:
+            cPickle.dump(old_bursts, backup_burst_file_out, cPickle.HIGHEST_PROTOCOL)
+
+        new_burst_fname = summary_burst_fname
+        with open(new_burst_fname, 'wb') as new_burst_file_out:
+            cPickle.dump(new_bursts, new_burst_file_out, cPickle.HIGHEST_PROTOCOL)
+
+
 if __name__ == '__main__':
-    if len(sys.argv) == 2:
-        info_name = sys.argv[1]
+    if len(sys.argv) == 1:
+        # info_name = sys.argv[1]
+        valid_bird = False
+        while not valid_bird:
+            bird_id = raw_input('Please enter a bird ID (C21-25): ')
+            try:
+                clusters_of_interest, burst_ids = bird_bursts[bird_id]
+                info_name = bird_info[bird_id]
+                valid_bird = True
+            except KeyError:
+                print 'Please enter a valid bird ID (C21-25)'
+        assert len(clusters_of_interest) == len(burst_ids)
+
         # syllable_aligned_bursts(info_name)
         motif_aligned_bursts(info_name)
         # manual_burst_proofing(info_name)
+        # fix_motifs(info_name)
