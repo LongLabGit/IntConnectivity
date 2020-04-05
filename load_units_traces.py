@@ -73,6 +73,7 @@ def visualize_simultaneous_recordings(experiment_info_name):
     # load whole-cell recording data
     WCDataFolder = experimentInfo['WC']['DataBasePath']
     WCFileNames = [os.path.join(WCDataFolder, fname) for fname in experimentInfo['WC']['RecordingFilenames']]
+    # these windows are the periods in which recordings are stable (i.e., no manipulation of holding potential)
     WCWindows = experimentInfo['WC']['RecordingPeriods']
     WCSignals = ca.reader.read_wholecell_data(WCFileNames, experimentInfo['WC']['Channels'])
     WCFilteredSignals = []
@@ -93,24 +94,31 @@ def visualize_simultaneous_recordings(experiment_info_name):
     # for each whole-cell recording period, create a figure where we plot all spikes
     # of all recorded units as rasters aligned to the whole-cell current
     for i, signal in enumerate(WCFilteredSignals):
-        fig = plt.figure(i)
+        fig = plt.figure(i + 1)
         ax1 = fig.add_subplot(2, 1, 1)
+        t_start, t_stop = WCWindows[i]
         t_ = np.linspace(signal.t_start, signal.t_stop, len(signal))
-        ax1.plot(t_, signal, 'k-', linewidth=0.5)
+        # plot whole-cell currents and rasters in stable period
+        stable_signal = signal.magnitude[np.where((t_ >= t_start) * (t_ <= t_stop))]
+        t_ = np.linspace(t_start, t_stop, len(stable_signal))
+        ax1.plot(t_, stable_signal, 'k-', linewidth=0.5)
         ax1.set_ylabel('Current (pA)')
         alignedSpikeTrains = []
         for clusterID in clusters:
             cluster = clusters[clusterID]
             spikeTrain = cluster.spiketrains[0]
-            for j in range(len(alignments)):
-                a, b = alignments[j]
-                t = ca.recording_alignment.linear_func(spikeTrain.magnitude, a, b)
-                newSpikeTimes = t[np.where((t >= 0)) * (t <= np.max(signal))]
-                newSpikeTrain = neo.core.SpikeTrain(newSpikeTimes, units=spikeTrain.units, t_start=np.min(newSpikeTimes),
-                                                    t_stop=np.max(newSpikeTimes))
-                alignedSpikeTrains.append(newSpikeTrain)
+            a, b = alignments[i]
+            t = ca.recording_alignment.linear_func(spikeTrain.magnitude, a, b)
+            newSpikeTimes = t[np.where((t >= t_start) * (t <= t_stop))]
+            if len(newSpikeTimes):
+                newSpikeTrain = neo.core.SpikeTrain(newSpikeTimes, units=spikeTrain.units,
+                                                    t_start=np.min(newSpikeTimes), t_stop=np.max(newSpikeTimes))
+            else:
+                newSpikeTrain = neo.core.SpikeTrain([], units=spikeTrain.units, t_start=0, t_stop=0)
+            alignedSpikeTrains.append(newSpikeTrain)
         ax2 = fig.add_subplot(2, 1, 2)
-        ax2.eventplot(alignedSpikeTrains)
+        ax2.eventplot(alignedSpikeTrains, linewidths=0.5, colors='k')
+        ax2.set_xlim(ax1.get_xlim())
         ax2.set_xlabel('Time (s)')
         ax2.set_ylabel('Neuron #')
     plt.show()

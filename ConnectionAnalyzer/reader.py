@@ -9,7 +9,7 @@ def read_wholecell_data(fnames, channels):
     analogSignals = [{} for i in range(len(fnames))]
     for i in range(len(fnames)):
         readABF = neo.io.AxonIO(fnames[i])
-        abfBlock = readABF.read_block(lazy=False, cascade=True)
+        abfBlock = readABF.read_block(lazy=False)
         for c in channels.keys():
             # from neo documentation for segment/analogsignal list indexing:
             signal = abfBlock.segments[0].analogsignals[c]
@@ -25,9 +25,8 @@ def read_Intan_digital_file(fname, nChannels, samplingRate):
     :param samplingRate: sampling rate (Hz)
     :return: array of neo AnalogSignals
     '''
-    r = neo.io.RawBinarySignalIO(fname)
-    seg = r.read_segment(lazy=False, cascade=True, nbchannel=nChannels, dtype='uint16', sampling_rate=samplingRate,
-                         rangemin=0, rangemax=2**16)  # avoid neo IO built-in unit conversion
+    r = neo.io.RawBinarySignalIO(fname, nb_channel=nChannels, dtype='uint16', sampling_rate=samplingRate)
+    seg = r.read_segment(lazy=False)
     return seg.analogsignals
 
 def read_Intan_analog_file(fname, nChannels, samplingRate):
@@ -38,8 +37,7 @@ def read_Intan_analog_file(fname, nChannels, samplingRate):
     :param samplingRate: sampling rate (Hz)
     :return: array of neo AnalogSignals
     '''
-    r = neo.io.RawBinarySignalIO(fname)
-    seg = r.read_segment(lazy=False, cascade=True, nbchannel=nChannels, dtype='uint16', sampling_rate=samplingRate,
-                         rangemin=0, rangemax=2**16)  # avoid neo IO built-in unit conversion
+    r = neo.io.RawBinarySignalIO(fname, nb_channel=nChannels, dtype='uint16', sampling_rate=samplingRate)
+    seg = r.read_segment(lazy=False)
     seg.analogsignals *= 0.000050354  # Intan magic number: convert to volts
     return seg.analogsignals

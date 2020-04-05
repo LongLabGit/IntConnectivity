@@ -23,7 +23,7 @@ def _unwhiten(wmi, x, channel_ids=None):
                   np.ascontiguousarray(mat))
 
 
-def read_KS_clusters(dataFolder, ClusteringSrcFolder, version, keep_group, samplingRate):
+def read_KS_clusters(dataFolder, version, keep_group, samplingRate):
     ''' folder: location of your data
         version: 'dev' or 'release'. This will tell the program where to look
         for the data
@@ -34,7 +34,6 @@ def read_KS_clusters(dataFolder, ClusteringSrcFolder, version, keep_group, sampl
         '''
 
     if version == 'release':
-        # KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'batches', 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'batches', 'spike_clusters.npy')).flatten()
         spike_templates = np.load(os.path.join(dataFolder, 'batches', 'spike_templates.npy')).flatten()
         spike_times_numpy = np.load(os.path.join(dataFolder, 'batches', 'spike_times.npy')).flatten()
@@ -47,7 +46,6 @@ def read_KS_clusters(dataFolder, ClusteringSrcFolder, version, keep_group, sampl
         # amplitudes = np.load(os.path.join(dataFolder, 'batches', 'amplitudes.npy')).flatten()
         cluster_group_fname = os.path.join(dataFolder, 'batches', 'cluster_groups.csv')
     elif version == 'dev':
-        # KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'spike_clusters.npy')).flatten()
         spike_templates = np.load(os.path.join(dataFolder, 'spike_templates.npy')).flatten()
         spike_times_numpy = np.load(os.path.join(dataFolder, 'spike_times.npy')).flatten()
@@ -62,12 +60,6 @@ def read_KS_clusters(dataFolder, ClusteringSrcFolder, version, keep_group, sampl
     else:
         errstr = 'Cluster loading for version %s not implemented' % version
         raise NotImplementedError(errstr)
-
-    # channelMapMatlab = scipy.io.loadmat(os.path.join(ClusteringSrcFolder,KiloSortData['ops'].chanMap), struct_as_record=False, squeeze_me=True)
-    # xcoords = channelMapMatlab['xcoords'][np.where(channelMapMatlab['connected'] == 1)]
-    # ycoords = channelMapMatlab['ycoords'][np.where(channelMapMatlab['connected'] == 1)]
-    # kcoords = channelMapMatlab['kcoords'][np.where(channelMapMatlab['connected'] == 1)]
-    # channelMap = channelMapMatlab['chanMap'][np.where(channelMapMatlab['connected'] == 1)]
 
     xcoords = channel_coordinates_numpy[:, 0]
     ycoords = channel_coordinates_numpy[:, 1]
@@ -107,32 +99,22 @@ def read_KS_clusters(dataFolder, ClusteringSrcFolder, version, keep_group, sampl
     for i in range(len(keptClusters)):
         clusterID = keptClusters[i]
         spikeTimeIndices = np.where(spike_clusters == clusterID)
-        # st3: 4 columns: sample time, original cluster, amplitude, useless
-        # spikeSamples = np.array(KiloSortData['rez'].st3)
         spikeSamples = spike_times_numpy
         # remove erroneous identically duplicate spike times
-        # clusterSpikeSamples, uniqueIndices = np.unique(spikeSamples[spikeTimeIndices, 0], return_index=True)
         clusterSpikeSamples, uniqueIndices = np.unique(spikeSamples[spikeTimeIndices], return_index=True)
         spikeTimes = clusterSpikeSamples/samplingRate
         spikeTrain = neo.core.SpikeTrain(spikeTimes, units='sec', t_stop=max(spikeTimes), t_start=min(0, min(spikeTimes)))
-        # templateAmplitudes = spikeSamples[spikeTimeIndices[0][uniqueIndices], 2]
         templateAmplitudes = amplitudes_numpy[spikeTimeIndices[0][uniqueIndices]]
         # find channel location of max. waveform
         # look up original clusters comprising this unit
-        # originalClusters = np.array(np.unique(spikeSamples[spikeTimeIndices, 1]), dtype='int') - 1  # Matlab vs. python indexing
         originalClusters = np.array(np.unique(spike_templates[spikeTimeIndices]), dtype='int')
         # compute mean template of these clusters
-        # meanTemplate = np.mean(np.array(KiloSortData['rez'].Wraw)[:, :, originalClusters], axis=2)
-        # meanTemplate = np.mean(templates_numpy[originalClusters, :, :], axis=0)
         meanTemplate = np.mean(templates_unwhitened[originalClusters, :, :], axis=0)
         # average power across time and find channel index with max power
         amplitude = meanTemplate.max(axis=0) - meanTemplate.min(axis=0)
         KS_channel = np.argmax(amplitude)
-        # KS_channel = np.argmax(np.max(np.abs(meanTemplate), axis=0))
-        # maxChannel = channelMap[KS_channel] - 1 # Matlab vs. python
         maxChannel = channelMap[KS_channel]
         maxWF = meanTemplate[:, KS_channel]
-        # shank = kcoords[KS_channel]
         shank = channel_shank_map_numpy[KS_channel]
         coordinates = xcoords[KS_channel], ycoords[KS_channel]
         firingRate = len(spikeTrain.times)/(spikeTrain.t_stop - spikeTrain.t_start)
@@ -143,7 +125,7 @@ def read_KS_clusters(dataFolder, ClusteringSrcFolder, version, keep_group, sampl
 
     return clusters
 
-def read_KS_clusters_unsorted(dataFolder, ClusteringSrcFolder, version, samplingRate):
+def read_KS_clusters_unsorted(dataFolder, version, samplingRate):
     ''' folder: location of your data
         version: 'dev' or 'release'. This will tell the program where to look
         for the data
@@ -151,7 +133,6 @@ def read_KS_clusters_unsorted(dataFolder, ClusteringSrcFolder, version, sampling
         :return: dict of Cluster objects, where keys are phy cluster IDs
         '''
     if version == 'release':
-        # KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'batches', 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'batches', 'spike_clusters.npy')).flatten()
         spike_templates = np.load(os.path.join(dataFolder, 'batches', 'spike_templates.npy')).flatten()
         spike_times_numpy = np.load(os.path.join(dataFolder, 'batches', 'spike_times.npy')).flatten()
@@ -163,7 +144,6 @@ def read_KS_clusters_unsorted(dataFolder, ClusteringSrcFolder, version, sampling
         whitening_matrix_inv = np.load(os.path.join(dataFolder, 'batches', 'whitening_mat_inv.npy'))
         # amplitudes = np.load(os.path.join(dataFolder, 'batches', 'amplitudes.npy')).flatten()
     elif version == 'dev':
-        # KiloSortData = scipy.io.loadmat(os.path.join(dataFolder, 'KS_output.mat'), struct_as_record=False, squeeze_me=True)
         spike_clusters = np.load(os.path.join(dataFolder, 'spike_clusters.npy')).flatten()
         spike_templates = np.load(os.path.join(dataFolder, 'spike_templates.npy')).flatten()
         spike_times_numpy = np.load(os.path.join(dataFolder, 'spike_times.npy')).flatten()
@@ -177,12 +157,6 @@ def read_KS_clusters_unsorted(dataFolder, ClusteringSrcFolder, version, sampling
     else:
         errstr = 'Cluster loading for version %s not implemented' % version
         raise NotImplementedError(errstr)
-
-    # channelMapMatlab = scipy.io.loadmat(os.path.join(ClusteringSrcFolder,KiloSortData['ops'].chanMap), struct_as_record=False, squeeze_me=True)
-    # xcoords = channelMapMatlab['xcoords'][np.where(channelMapMatlab['connected'] == 1)]
-    # ycoords = channelMapMatlab['ycoords'][np.where(channelMapMatlab['connected'] == 1)]
-    # kcoords = channelMapMatlab['kcoords'][np.where(channelMapMatlab['connected'] == 1)]
-    # channelMap = channelMapMatlab['chanMap'][np.where(channelMapMatlab['connected'] == 1)]
 
     xcoords = channel_coordinates_numpy[:, 0]
     ycoords = channel_coordinates_numpy[:, 1]
@@ -199,29 +173,22 @@ def read_KS_clusters_unsorted(dataFolder, ClusteringSrcFolder, version, sampling
     clusters = {}
     for clusterID in clusterIDs:
         spikeTimeIndices = np.where(spike_clusters == clusterID)
-        # st3: 4 columns: sample time, original cluster, amplitude, useless
-        # spikeSamples = np.array(KiloSortData['rez'].st3)
         spikeSamples = spike_times_numpy
         # remove erroneous identically duplicate spike times
-        # clusterSpikeSamples, uniqueIndices = np.unique(spikeSamples[spikeTimeIndices, 0], return_index=True)
         clusterSpikeSamples, uniqueIndices = np.unique(spikeSamples[spikeTimeIndices], return_index=True)
         spikeTimes = clusterSpikeSamples/samplingRate
         spikeTrain = neo.core.SpikeTrain(spikeTimes, units='sec', t_stop=max(spikeTimes), t_start=min(0, min(spikeTimes)))
-        # templateAmplitudes = spikeSamples[spikeTimeIndices[0][uniqueIndices], 2]
         templateAmplitudes = amplitudes_numpy[spikeTimeIndices[0][uniqueIndices]]
         # find channel location of max. waveform
         # look up original clusters comprising this unit
-        # originalClusters = np.array(np.unique(spikeSamples[spikeTimeIndices, 1]), dtype='int') - 1  # Matlab vs. python indexing
         originalClusters = np.array(np.unique(spike_templates[spikeTimeIndices]), dtype='int')
         # compute mean template of these clusters
-        # meanTemplate = np.mean(np.array(KiloSortData['rez'].Wraw)[:, :, originalClusters], axis=2)
         meanTemplate = np.mean(templates_unwhitened[originalClusters, :, :], axis=0)
         # average power across time and find channel index with max power
-        KS_channel = np.argmax(np.max(np.abs(meanTemplate), axis=0))
-        # maxChannel = channelMap[KS_channel] - 1 # Matlab vs. python
+        amplitude = meanTemplate.max(axis=0) - meanTemplate.min(axis=0)
+        KS_channel = np.argmax(amplitude)
         maxChannel = channelMap[KS_channel]
         maxWF = meanTemplate[:, KS_channel]
-        # shank = kcoords[KS_channel]
         shank = channel_shank_map_numpy[KS_channel]
         coordinates = xcoords[KS_channel], ycoords[KS_channel]
         firingRate = len(spikeTrain.times)/(spikeTrain.t_stop - spikeTrain.t_start)
