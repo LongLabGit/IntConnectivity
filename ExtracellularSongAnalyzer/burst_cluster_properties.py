@@ -11,8 +11,11 @@ import ClusterProcessing as cp
 import utilities as utils
 
 clustering_src_folder = 'E:\\User\\project_src\\physiology\\Clustering'
-clusters_of_interest = [1, 9, 45, 46, 55, 58, 108, 128, 135, 209, 244, 266, 304, 309, 337, 353, 388, 454, 469, 578,
-                        685, 701, 702, 705, 721, 733, 738, 759, 760, 761, 772, 779] # bursters that look the most promising
+# clusters_of_interest = [1, 9, 45, 46, 55, 58, 108, 128, 135, 209, 244, 266, 304, 309, 337, 353, 388, 454, 469, 578,
+#                         685, 701, 702, 705, 721, 733, 738, 759, 760, 761, 772, 779] # bursters that look the most promising
+# Ugh have to re-do the ones from C23 that are non-RA b/c they were done in a previous version where burst spike times
+# and waveforms were not saved automatically...
+clusters_of_interest = [883, 918, 1073, 841, 1288, 1298, 387, 983, 807, 1116, 1129, 1175, 1247, 1283, 1257, 1374]
 
 
 class AntidromicUnit(object):
@@ -226,8 +229,8 @@ def individual_burst_shapes(experiment_info_name):
     skiptrials = []
 
     # got through all clusters
-    # for cluster_id in clusters_of_interest:
-    for cluster_id in [547]:
+    for cluster_id in clusters_of_interest:
+    # for cluster_id in [547]:
     # for cluster_id in burst_cluster_ids:
         cluster = clusters[cluster_id]
         spike_times = cluster.spiketrains[0]
@@ -1337,16 +1340,17 @@ def spontaneous_firing_rate(experiment_info_name):
     # clusters_of_interest = [58, 388, 702, 741, 767, 108, 209, 244, 353, 930, 9, 45, 46, 92, 128, 266, 337, 454, 685, 728,
     #                         733, 738, 917, 1, 696, 732, 759, 764, 772]
     # C22
-    clusters_of_interest = [30, 69, 71, 103, 126, 205, 225, 258, 354, 370, 497, 546, 547, 622, 639, 703, 734, 738, 765, 786,
-                            791, 803, 832, 942, 58, 60, 61, 76, 97, 124, 136, 177, 183, 209, 252, 288, 305, 318, 339,
-                            532, 603, 604, 607, 623, 650, 657, 694, 719, 723, 741, 761, 804, 810, 817, 833, 945]
+    # clusters_of_interest = [30, 69, 71, 103, 126, 205, 225, 258, 354, 370, 497, 546, 547, 622, 639, 703, 734, 738, 765, 786,
+    #                         791, 803, 832, 942, 58, 60, 61, 76, 97, 124, 136, 177, 183, 209, 252, 288, 305, 318, 339,
+    #                         532, 603, 604, 607, 623, 650, 657, 694, 719, 723, 741, 761, 804, 810, 817, 833, 945]
     # C23
     # clusters_of_interest = [1116, 1129, 1154, 1158, 1166, 1169, 1175, 1205, 1220, 1236, 1247, 1257, 1267, 1268, 1283,
     #                         1288, 1298, 1302, 1303, 1309, 1314, 1330, 1340, 1346, 1367, 1374, 1376]
     # C24
-    # clusters_of_interest = [5, 14, 23, 31, 55, 89, 148, 159, 196, 200, 231, 249, 264, 273, 330, 336, 349, 360, 459, 478,
-    #                         558, 563, 564, 720, 725, 743, 751, 812, 813, 824, 827, 848, 853, 858, 867, 871, 883, 884,
-    #                         903, 904]
+    clusters_of_interest = [5, 14, 23, 31, 55, 89, 148, 159, 196, 200, 231, 249, 264, 273, 330, 336, 349, 360, 459, 478,
+                            558, 563, 564, 720, 725, 743, 751, 812, 813, 824, 827, 848, 853, 858, 867, 871, 883, 884,
+                            903, 904, 77, 91, 190, 221, 286, 308, 311, 388, 451, 616, 653, 743, 753, 767, 801, 804, 880,
+                            908]
     # C25
     # clusters_of_interest = [16, 50, 77, 79, 95, 104, 119, 139, 159, 187, 189, 194, 208, 229, 234, 339, 378, 386, 391,
     #                         412, 418, 432, 442, 456, 465, 469, 476, 72, 163, 216, 240, 289, 310, 320, 325, 346, 384,
@@ -1545,9 +1549,9 @@ if __name__ == '__main__':
     if len(sys.argv) == 2:
         experiment_info = sys.argv[1]
         # template_extent_spatial(experiment_info)
-        # individual_burst_shapes(experiment_info)
+        individual_burst_shapes(experiment_info)
         # burst_firing_rate(experiment_info)
-        spontaneous_firing_rate(experiment_info)
+        # spontaneous_firing_rate(experiment_info)
     if len(sys.argv) == 3:
         experiment_info = sys.argv[1]
         antidromic_info = sys.argv[2]

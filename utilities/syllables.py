@@ -89,12 +89,14 @@ def map_trial_time_to_trial_syllable(t_trial, trial_nr, egui_syllables):
         trial_index = np.where(syllable.motifs == trial_nr)[0]
         trial_onset = syllable.onsets[trial_index]
         trial_offset = syllable.offsets[trial_index]
-        # if trial_onset <= t_trial <= trial_offset:
-        #     return label, (t_trial - trial_onset)[0] # dirty hack to return non-array but float
         # DIRTY HACK for C23:
-        for i in range(len(trial_onset)):
-            if trial_onset[i] <= t_trial <= trial_offset[i]:
-                return label, t_trial - trial_onset[i]
+        try:
+            if trial_onset <= t_trial <= trial_offset:
+                return label, (t_trial - trial_onset)[0] # dirty hack to return non-array but float
+        except ValueError:
+            for i in range(len(trial_onset)):
+                if trial_onset[i] <= t_trial <= trial_offset[i]:
+                    return label, t_trial - trial_onset[i]
 
     return None, None
 
@@ -134,11 +136,13 @@ def map_trial_time_to_reference_syllable(t_trial, trial_nr, egui_syllables):
         ref_offset = reference_syllables[label][1]
         t_ = t_trial - trial_onset
         mapped_t_trial = ref_onset + t_ * (ref_offset - ref_onset) / (trial_offset - trial_onset)
-        if ref_onset <= mapped_t_trial <= ref_offset:
-            return label, mapped_t_trial
+        try:
+            if ref_onset <= mapped_t_trial <= ref_offset:
+                return label, mapped_t_trial
         # DIRTY HACK for C23:
-        # for t__ in mapped_t_trial:
-        #     if ref_onset <= t__ <= ref_offset:
-        #         return label, t__
+        except ValueError:
+            for t__ in mapped_t_trial:
+                if ref_onset <= t__ <= ref_offset:
+                    return label, t__
 
     return None, None
