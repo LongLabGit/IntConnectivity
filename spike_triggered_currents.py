@@ -137,13 +137,13 @@ def generate_STA_shuffled_ISIs(experimentInfoName, shuffleClusterID, nShuffle):
 
 
 def align_current_traces_probe_recordings(experimentInfo):
-    '''
+    """
     simple wrapper around paired recording alignment
     :param experimentInfo:
     :return: dict of alignments:
      keys: filenames of WC recordings
      elements: alignment of cluster spike times to WC recordings
-    '''
+    """
     pulseThreshold = 0.5
     syncChannels = 1
     # ProbeAnalogDataName = os.path.join(experimentInfo['SiProbe']['DataBasePath'], 'analoginToDigitalin.dat')
@@ -169,11 +169,11 @@ def align_current_traces_probe_recordings(experimentInfo):
 
 
 def filter_current_trace(WCSignal, experimentInfo):
-    '''
+    """
     Implements low-pass filtering of WC current trace
     :param WCSignal: neo AnalogSignal of current trace
     :return: FilteredWCSignal: neo AnalogSignal of filtered current trace
-    '''
+    """
     # # GK: Savitzky-Golay Filter, 2nd order, 1.75ms window
     # filterOrder = 2
     # windowLengthTime = 0.00175
@@ -207,7 +207,7 @@ def filter_current_trace(WCSignal, experimentInfo):
 
 
 def compute_ST_traces_average(cluster, WCSignals, WCSignalNames, WCWindows, WCAlignments, alignedWindow, offset=False):
-    '''
+    """
     aligns WC currents to spike times in cluster
     :param cluster: Cluster object
     :param WCSignals: array of neo AnalogSignals to be aligned
@@ -217,7 +217,7 @@ def compute_ST_traces_average(cluster, WCSignals, WCSignalNames, WCWindows, WCAl
     ST traces and average
     :param offset: bool whether to offset each trace to median value before spike time before averaging
     :return:
-    '''
+    """
     spikeTrain = cluster.spiketrains[0]
     alignedSpikeTrains = []
     for j in range(len(WCAlignments)):
@@ -282,7 +282,7 @@ def compute_ST_traces_average(cluster, WCSignals, WCSignalNames, WCWindows, WCAl
 
 
 def compute_shuffled_ST_traces_average(cluster, WCSignals, WCSignalNames, WCWindows, WCAlignments, alignedWindow, nShuffles):
-    '''
+    """
     aligns WC currents to spike times in cluster
     :param cluster: Cluster object
     :param WCSignals: array of neo AnalogSignals to be aligned
@@ -292,7 +292,7 @@ def compute_shuffled_ST_traces_average(cluster, WCSignals, WCSignalNames, WCWind
     ST traces and average
     :param nShuffles: number of surrogate spike trains to be generated
     :return:
-    '''
+    """
     oldSpikeTrain = cluster.spiketrains[0]
     alignedSpikeTrains = []
     for j in range(len(WCAlignments)):
@@ -347,7 +347,7 @@ def compute_shuffled_ST_traces_average(cluster, WCSignals, WCSignalNames, WCWind
 
 
 def compute_shuffled_ST_traces(cluster, WCSignals, WCSignalNames, WCWindows, WCAlignments, alignedWindow, nShuffles):
-    '''
+    """
     aligns WC currents to spike times in cluster
     :param cluster: Cluster object
     :param WCSignals: array of neo AnalogSignals to be aligned
@@ -357,7 +357,7 @@ def compute_shuffled_ST_traces(cluster, WCSignals, WCSignalNames, WCWindows, WCA
     ST traces and average
     :param nShuffles: number of surrogate spike trains to be generated
     :return:
-    '''
+    """
     spikeTrain = cluster.spiketrains[0]
     alignedSpikeTrains = []
     for j in range(len(WCAlignments)):
@@ -423,10 +423,10 @@ def compute_shuffled_ST_traces(cluster, WCSignals, WCSignalNames, WCWindows, WCA
 
 
 def save_ST_traces_average(experimentInfo, STAlignedTraces):
-    '''
+    """
     TBD
     :return: nothing
-    '''
+    """
     pass
 
 
