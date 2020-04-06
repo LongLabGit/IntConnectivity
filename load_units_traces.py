@@ -7,7 +7,7 @@
 # each other.
 ##############################################
 
-import sys, os, ast, cPickle
+import os, ast
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal
@@ -40,7 +40,7 @@ def _align_current_traces_probe_recordings(experimentInfo):
     :param experimentInfo:
     :return: dict of alignments:
      keys: filenames of WC recordings
-     elements: alignment of cluster spike times to WC recordings
+     elements: alignment of WC recordings to cluster spike times
     """
     pulseThreshold = 0.5
     syncChannels = 1
@@ -60,7 +60,7 @@ def _align_current_traces_probe_recordings(experimentInfo):
         alignment = ca.recording_alignment.align_paired_recordings((probePulseSignal[0], signal['pulseIn']),
                                                                    alignmentPeriods, pulseThreshold, minimumInterval=0.05)
         # only align cluster spike times to current signal; WC sampling rate will stay fixed
-        alignments.append(alignment[0])
+        alignments.append(alignment[1])
 
     return alignments
 
@@ -101,15 +101,19 @@ def visualize_simultaneous_recordings(experiment_info_name):
         # plot whole-cell currents and rasters in stable period
         stable_signal = signal.magnitude[np.where((t_ >= t_start) * (t_ <= t_stop))]
         t_ = np.linspace(t_start, t_stop, len(stable_signal))
-        ax1.plot(t_, stable_signal, 'k-', linewidth=0.5)
+        a, b = alignments[i]
+        t_aligned = ca.recording_alignment.linear_func(t_, a, b)
+        ax1.plot(t_aligned, stable_signal, 'k-', linewidth=0.5)
         ax1.set_ylabel('Current (pA)')
+        out_suffix = 'current_period_%d.npy' % i
+        out_array = np.vstack([t_aligned, stable_signal.flatten()])
+        np.save(os.path.join(SiProbeDataFolder, out_suffix), out_array)
         alignedSpikeTrains = []
         for clusterID in clusters:
             cluster = clusters[clusterID]
             spikeTrain = cluster.spiketrains[0]
-            a, b = alignments[i]
-            t = ca.recording_alignment.linear_func(spikeTrain.magnitude, a, b)
-            newSpikeTimes = t[np.where((t >= t_start) * (t <= t_stop))]
+            t = spikeTrain.magnitude
+            newSpikeTimes = t[np.where((t >= t_aligned[0]) * (t <= t_aligned[-1]))]
             if len(newSpikeTimes):
                 newSpikeTrain = neo.core.SpikeTrain(newSpikeTimes, units=spikeTrain.units,
                                                     t_start=np.min(newSpikeTimes), t_stop=np.max(newSpikeTimes))
@@ -121,10 +125,18 @@ def visualize_simultaneous_recordings(experiment_info_name):
         ax2.set_xlim(ax1.get_xlim())
         ax2.set_xlabel('Time (s)')
         ax2.set_ylabel('Neuron #')
+
+    for clusterID in clusters:
+        cluster = clusters[clusterID]
+        spikeTrain = cluster.spiketrains[0]
+        t = spikeTrain.magnitude
+        out_suffix = 'cluster_%d_spike_times.npy' % clusterID
+        np.save(os.path.join(SiProbeDataFolder, out_suffix), t)
+
     plt.show()
 
 
 if __name__ == '__main__':
-    if len(sys.argv) == 2:
-        experimentInfoName = sys.argv[1]
-        visualize_simultaneous_recordings(experimentInfoName)
+    experimentInfoName = '/Users/robert/Documents/projects/Elad/102817/experiment_102817.info'
+    # experimentInfoName = '/Users/robert/Documents/projects/Elad/043019/experiment_043019.info'
+    visualize_simultaneous_recordings(experimentInfoName)
