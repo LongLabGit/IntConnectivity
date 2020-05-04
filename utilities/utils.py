@@ -2,6 +2,7 @@
 # Imports
 # -----------------------------------------------------------------------------
 import os
+import ast
 import numpy as np
 from scipy import signal
 
@@ -153,6 +154,18 @@ def copy_channels(recording_name, out_name, nchannels, channels, fs, dtype=np.dt
 # I/O
 # -----------------------------------------------------------------------------
 
+
+def load_burst_info(experiment_info_name):
+    """
+    Look up file name with burst information in experiment_info dictionary
+    return: pair of tuples containing matched cluster IDs and burst IDs
+    """
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+
+    fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], experiment_info['SiProbe']['BurstIdentity'])
+    cluster_ids, burst_ids = np.loadtxt(fname, skiprows=1, unpack=True)
+    return cluster_ids, burst_ids
 
 # -----------------------------------------------------------------------------
 # signal processing

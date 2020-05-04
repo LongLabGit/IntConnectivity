@@ -1287,8 +1287,9 @@ if __name__ == '__main__':
         while not valid_bird:
             bird_id = raw_input('Please enter a bird ID (C21-25): ')
             try:
-                clusters_of_interest, burst_ids = bird_bursts[bird_id]
+                # clusters_of_interest, burst_ids = bird_bursts[bird_id]
                 info_name = bird_info[bird_id]
+                clusters_of_interest, burst_ids = utils.load_burst_info(info_name)
                 valid_bird = True
             except KeyError:
                 print 'Please enter a valid bird ID (C21-25)'
