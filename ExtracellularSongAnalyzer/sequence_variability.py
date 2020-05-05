@@ -15,11 +15,12 @@ clusters_of_interest = []
 burst_ids = []
 
 bird_info['C21'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C21\clustered\experiment_C21_d1_alignment_reducedTemp.info'
-bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
+# bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
+bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment_non-RA.info'
 # use the following for motif-level variability
-bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
+# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
 # and this one for syllable-level variability
-# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
+bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
 bird_info['C24'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C24\experiment_C24_alignment.info'
 bird_info['C25'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C25\experiment_C25_alignment.info'
 
@@ -940,7 +941,8 @@ def burst_sequence_syllable_alignment(experiment_info_name):
         if not len(syl_index):
             syl_index = 0
         ref_syl_duration = egui_syllables[syl].offsets[syl_index] - egui_syllables[syl].onsets[syl_index]
-        print 'Syllable %s ref duration = %.3f ms' % (syl, ref_syl_duration[1])
+        print 'Syllable %s ref duration = %.3f ms' % (syl, ref_syl_duration[0])
+        # print 'Syllable %s ref duration = %.3f ms' % (syl, ref_syl_duration[1]) # C23
         print 'Mean burst time (ms)\tBurst time RMSE (ms)'
         for i in range(len(mean_burst_times)):
             print '%.3f\t%.3f' % (1e3 * mean_burst_times[i], 1e3 * burst_variabilities[i])

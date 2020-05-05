@@ -164,7 +164,9 @@ def load_burst_info(experiment_info_name):
         experiment_info = ast.literal_eval(data_file.read())
 
     fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], experiment_info['SiProbe']['BurstIdentity'])
-    cluster_ids, burst_ids = np.loadtxt(fname, skiprows=1, unpack=True)
+    cluster_ids_, burst_ids_ = np.loadtxt(fname, skiprows=1, unpack=True, delimiter=',')
+    cluster_ids = cluster_ids_.astype(int)
+    burst_ids = burst_ids_.astype(int)
     return cluster_ids, burst_ids
 
 # -----------------------------------------------------------------------------
