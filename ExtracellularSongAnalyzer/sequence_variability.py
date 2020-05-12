@@ -513,9 +513,9 @@ def burst_sequence_alignment_per_trial(experiment_info_name):
         for burst_id in range(len(cluster_bursts)):
             burst = cluster_bursts[burst_id][trial_nr]
             if len(burst):
-                # burst_time = burst[0]
+                burst_time = burst[0]
                 # burst_time = 0.5 * (burst[0] + burst[-1])
-                burst_time = np.mean(burst)
+                # burst_time = np.mean(burst)
                 sequence[burst_id] = burst_time
                 tmp_seq.append(burst_time)
         trial_sequences.append(sequence)
@@ -783,9 +783,9 @@ def burst_sequence_syllable_alignment(experiment_info_name):
             for burst_id in range(len(cluster_bursts)):
                 burst = cluster_bursts[burst_id][trial_nr]
                 if len(burst):
-                    # burst_time = burst[0]
+                    burst_time = burst[0]
                     # burst_time = 0.5 * (burst[0] + burst[-1])
-                    burst_time = np.mean(burst)
+                    # burst_time = np.mean(burst)
                     burst_time_motif_aligned = burst_time - motif_finder_data.start[trial_nr]
                     burst_syl, burst_syl_time = utils.map_trial_time_to_trial_syllable(burst_time_motif_aligned,
                                                                                        trial_nr, egui_syllables)
@@ -983,9 +983,9 @@ def burst_sequence_syllable_alignment_shuffle(experiment_info_name):
                 for burst_id in range(len(cluster_bursts)):
                     burst = cluster_bursts[burst_id][trial_nr]
                     if len(burst):
-                        # burst_time = burst[0]
+                        burst_time = burst[0]
                         # burst_time = 0.5 * (burst[0] + burst[-1])
-                        burst_time = np.mean(burst)
+                        # burst_time = np.mean(burst)
                         burst_time_motif_aligned = burst_time - motif_finder_data.start[trial_nr]
                         burst_syl, burst_syl_time = utils.map_trial_time_to_trial_syllable(burst_time_motif_aligned,
                                                                                            trial_nr, shuffled_syllables)
@@ -1298,8 +1298,8 @@ if __name__ == '__main__':
         assert len(clusters_of_interest) == len(burst_ids)
 
         # burst_interval_scaling_per_trial(info_name)
-        burst_sequence_alignment_per_trial(info_name)
-        # burst_sequence_syllable_alignment(info_name)
+        # burst_sequence_alignment_per_trial(info_name)
+        burst_sequence_syllable_alignment(info_name)
         # burst_sequence_syllable_alignment_shuffle(info_name)
         # pairwise_burst_distance_jitter(info_name)
         # burst_sequence_visualization(info_name)

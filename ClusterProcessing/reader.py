@@ -201,7 +201,7 @@ def read_KS_clusters_unsorted(dataFolder, version, samplingRate):
 
 
 def read_all_clusters_except_noise(data_folder, version, fs):
-    clusters = read_KS_clusters_unsorted(data_folder, '', version, fs)
+    clusters = read_KS_clusters_unsorted(data_folder, version, fs)
 
     if version == 'release':
         cluster_group_fname = os.path.join(data_folder, 'batches', 'cluster_groups.csv')

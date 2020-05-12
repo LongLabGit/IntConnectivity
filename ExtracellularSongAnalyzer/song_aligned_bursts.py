@@ -461,7 +461,7 @@ def motif_aligned_bursts(experiment_info_name):
     plot_audio = utils.normalize_audio_trace(template_data, -1.0, 1.0)
 
     # UGLY HACK for C22 2nd alignment for non-RA
-    # C22_nonRA_motifs = [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12]
+    C22_nonRA_motifs = [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12]
 
     # # get clusters
     # data_folder = experiment_info['SiProbe']['DataBasePath']
@@ -510,6 +510,7 @@ def motif_aligned_bursts(experiment_info_name):
     fig = plt.figure(0)
     ax = fig.add_subplot(1, 1, 1)
     ax.set_xlim([0, 1])
+    all_cluster_spikes = {} # dict of all spike times in all motifs; keys are mean burst onset time
     for j, cluster_id in enumerate(clusters_of_interest):
         # fig = plt.figure(2*j)
         if proofread:
@@ -517,21 +518,21 @@ def motif_aligned_bursts(experiment_info_name):
         else:
             burst = cluster_bursts[j]
         cluster_burst_onsets = []
-        cluster_spikes = []
+        cluster_spikes = {}
         spike_times_flattened = []
         # UGLY HACK for C22 non-RA
-        # if len(burst) == n_motifs:
-        #     motif_iter = range(n_motifs)
-        # else:
-        #     motif_iter = C22_nonRA_motifs
+        if len(burst) == n_motifs:
+            motif_iter = range(n_motifs)
+        else:
+            motif_iter = C22_nonRA_motifs
         # END UGLY HACK for C22 non-RA
         for i in range(n_motifs):
             # if len(burst_proofed[i][0]):
             # UGLY HACK for C22 non-RA
-            # if len(burst[motif_iter[i]][0]):
+            if len(burst[motif_iter[i]][0]):
             # END UGLY HACK for C22 non-RA
             # following line for normal version
-            if len(burst[i][0]):
+            # if len(burst[i][0]):
                 motif_start = motif_finder_data.start[i]
                 motif_warp = motif_finder_data.warp[i]
                 # motif_warp = 1.0 # Show slowest and longest sequence in figure to illustrate global sequence variance
@@ -547,25 +548,25 @@ def motif_aligned_bursts(experiment_info_name):
                 # not proofread
                 else:
                     # UGLY HACK for C22 non-RA
-                    # burst_times_motif = (burst[motif_iter[i]][0] - motif_start) / motif_warp
+                    burst_times_motif = (burst[motif_iter[i]][0] - motif_start) / motif_warp
                     # END UGLY HACK for C22 non-RA
                     # following line for normal version
-                    burst_times_motif = (burst[i][0] - motif_start) / motif_warp
+                    # burst_times_motif = (burst[i][0] - motif_start) / motif_warp
             # if len(burst_times_motif):
                 cluster_burst_onsets.append(burst_times_motif[0])
                 ax.plot(burst_times_motif[0], i, color=cmap(color_norm(j)), linewidth=0.5)
-                cluster_spikes.append(burst_times_motif)
+                cluster_spikes[i] = burst_times_motif
                 # spike_times_flattened.extend(tmp1)
                 if proofread:
                     spike_times_flattened.extend(burst_proofed[i][0])
                 else:
                     # UGLY HACK for C22 non-RA
-                    # spike_times_flattened.extend(burst[motif_iter[i]][0])
+                    spike_times_flattened.extend(burst[motif_iter[i]][0])
                     # END UGLY HACK for C22 non-RA
                     # following line for normal version
-                    spike_times_flattened.extend(burst[i][0])
+                    # spike_times_flattened.extend(burst[i][0])
             else:
-                cluster_spikes.append([])
+                cluster_spikes[i] = []
 
         # ax = plt.subplot(1, 1, 1)
         # ax.eventplot(cluster_spikes, colors='k', linewidths=0.5)
@@ -584,6 +585,7 @@ def motif_aligned_bursts(experiment_info_name):
         # title_str = 'Burst onset %d of cluster %d - var = %.1f ms' % (burst_ids[j], cluster_id, onset_var)
         # print '%s\t%d\t%.1f' % (cluster_id, burst_ids[j], onset_var)
         print '%.3f\t%.1f' % (np.mean(cluster_burst_onsets), onset_var)
+        all_cluster_spikes[np.mean(cluster_burst_onsets)] = cluster_spikes
         # ax.set_title(title_str)
         # fig_suffix = 'Cluster_%d_burst_%d_motif_aligned_no_warping.pdf' % (cluster_id, burst_ids[j])
         # fig_name = os.path.join(cluster_folder, 'burst_identity', fig_suffix)
@@ -620,9 +622,29 @@ def motif_aligned_bursts(experiment_info_name):
 
     plt.show()
 
-    motif_times = 0.0, motif_finder_data.stop[0] - motif_finder_data.start[0]
-    _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_variances, [motif_times[0]],
-                           [motif_times[1]])
+    bursts = all_cluster_spikes.keys()
+    bursts.sort()
+    for i in range(n_motifs):
+        fig_i = plt.figure(i + 3)
+        ax_i = fig_i.add_subplot(1, 1, 1)
+        for j, b in enumerate(bursts):
+            try:
+                t_spike = all_cluster_spikes[b][i]
+                for t in t_spike:
+                    ax_i.plot([t, t], [j, j + 1], 'k-', linewidth=1)
+            except KeyError:
+                continue
+        ax_i.set_xlabel('Time (s)')
+        ax_i.set_ylabel('Neuron')
+        title_str = 'Sequence motif %d' % (i + 1)
+        ax_i.set_title(title_str)
+        fig_suffix = 'motif_%d_non-RA_neurons_sequence.pdf' % (i + 1)
+        fig_name = os.path.join(cluster_folder, 'burst_identity', fig_suffix)
+        plt.savefig(fig_name)
+
+    # motif_times = 0.0, motif_finder_data.stop[0] - motif_finder_data.start[0]
+    # _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_variances, [motif_times[0]],
+    #                        [motif_times[1]])
 
     # # ugly HACK for C23: because we're using the second part (BA), shift motif onset to first burst time
     # tmp_offset = 0.428
@@ -822,6 +844,7 @@ if __name__ == '__main__':
             try:
                 clusters_of_interest, burst_ids = bird_bursts[bird_id]
                 info_name = bird_info[bird_id]
+                # clusters_of_interest, burst_ids = utils.load_burst_info(info_name)
                 valid_bird = True
             except KeyError:
                 print 'Please enter a valid bird ID (C21-25)'
