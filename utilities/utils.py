@@ -7,6 +7,9 @@ import numpy as np
 from scipy import signal
 
 
+intan_constant = 0.195
+
+
 # -----------------------------------------------------------------------------
 # Recording
 # -----------------------------------------------------------------------------
@@ -155,6 +158,32 @@ def copy_channels(recording_name, out_name, nchannels, channels, fs, dtype=np.dt
 # -----------------------------------------------------------------------------
 
 
+def _load_burst_info_csv(fname, skiprows=0, delimiter=','):
+    """
+    load burst info from csv file with columns cluster id, burst id, type
+    :param fname: filename
+    :param skiprows: number of rows to skip (default: 0)
+    :param delimiter: column delimiter string (default: ',')
+    :return: tuples cluster_ids, burst_ids, cell_types
+    """
+    cluster_ids, burst_ids, cell_types = [], [], []
+    with open(fname, 'r') as cluster_file:
+        line_cnt = 0
+        for line in cluster_file:
+            line_cnt += 1
+            if line_cnt <= skiprows or not line:
+                continue
+            split_line = line.strip().split(delimiter)
+            if len(split_line) != 3:
+                e = 'Number of columns is %d; expected 3' % len(split_line)
+                raise RuntimeError(e)
+            cluster_ids.append(int(split_line[0]))
+            burst_ids.append(int(split_line[1]))
+            cell_types.append(split_line[2])
+
+    return tuple(cluster_ids), tuple(burst_ids), tuple(cell_types)
+
+
 def load_burst_info(experiment_info_name):
     """
     Look up file name with burst information in experiment_info dictionary
@@ -164,10 +193,11 @@ def load_burst_info(experiment_info_name):
         experiment_info = ast.literal_eval(data_file.read())
 
     fname = os.path.join(experiment_info['SiProbe']['ClusterBasePath'], experiment_info['SiProbe']['BurstIdentity'])
-    cluster_ids_, burst_ids_ = np.loadtxt(fname, skiprows=1, unpack=True, delimiter=',')
-    cluster_ids = cluster_ids_.astype(int)
-    burst_ids = burst_ids_.astype(int)
-    return cluster_ids, burst_ids
+    # cluster_ids_, burst_ids_ = np.loadtxt(fname, skiprows=1, unpack=True, delimiter=',')
+    # cluster_ids = cluster_ids_.astype(int)
+    # burst_ids = burst_ids_.astype(int)
+    cluster_ids, burst_ids, cell_types = _load_burst_info_csv(fname, skiprows=1, delimiter=',')
+    return cluster_ids, burst_ids, cell_types
 
 # -----------------------------------------------------------------------------
 # signal processing

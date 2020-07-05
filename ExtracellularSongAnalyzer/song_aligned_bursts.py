@@ -15,8 +15,8 @@ clusters_of_interest = []
 burst_ids = []
 
 bird_info['C21'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C21\clustered\experiment_C21_d1_alignment_reducedTemp.info'
-# bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
-bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment_non-RA.info'
+bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
+# bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment_non-RA.info'
 # use the following for motif-level variability
 # bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
 # and this one for syllable-level variability
@@ -48,17 +48,28 @@ bird_bursts['C21'] = ([58, 388, 741, 108, 209, 46, 46, 128, 128, 128, 266, 266, 
 #                        622, 639, 703, 738, 791, 832, 942],
 #                       [0, 1, 0, 1, 0, 3, 0, 0, 0, 2, 0, 1, 2, 3, 0, 0,
 #                        0, 0, 0, 0, 1, 0, 0])
+# pick common motifs (HVC(RA) PNs)
+# bird_bursts['C22'] = ([30, 33, 211, 225, 343, 364, 370, 547, 609, 622, 639, 650, 685, 703, 738, 791, 832, 833,
+#                        938, 942],
+#                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#                        0, 0])
+# pick common motifs (old version non-VC(RA) PNs)
+# dummy_ids = [58, 60, 61, 76, 97, 136, 151, 162, 177, 180, 183, 209, 216, 243, 299, 323, 359, 368, 377, 402,
+#                        613, 616, 638, 649, 677, 678, 692, 693, 724, 728, 735, 824]
+# bird_bursts['C22'] = (dummy_ids, [0 for i in range(len(dummy_ids))])
+# forgot this one above
+bird_bursts['C22'] = ([124], [0])
 # all non-HVC(RA) PNs
-bird_bursts['C22'] = ([30, 69, 71, 103, 126, 205, 225, 258, 354, 370, 497, 546, 734, 765, 786, 803, 252, 252, 252, 252,
-                       288, 288, 288, 305, 305, 318, 318, 318, 318, 318, 339, 339, 339, 532, 532, 532, 532,
-                       603, 603, 603, 604, 604, 607, 607, 607, 607, 623, 623, 650, 650, 650, 657, 657, 657, 657,
-                       694, 694, 694, 694, 719, 719, 723, 723, 741, 741, 761, 761, 804, 804, 810, 810, 817, 817, 817,
-                       833, 833, 945, 945, 945],
-                      [1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3,
-                       0, 1, 2, 0, 1, 0, 1, 2, 3, 4, 0, 1, 2, 0, 1, 2, 3,
-                       0, 1, 2, 0, 1, 0, 1, 2, 3, 0, 1, 0, 3, 4, 0, 1, 2, 3,
-                       0, 1, 2, 3, 0, 1, 0, 1, 0, 1, 0, 1, 1, 3, 0, 1, 0, 2, 3,
-                       1, 2, 0, 1, 2])
+# bird_bursts['C22'] = ([30, 69, 71, 103, 126, 205, 225, 258, 354, 370, 497, 546, 734, 765, 786, 803, 252, 252, 252, 252,
+#                        288, 288, 288, 305, 305, 318, 318, 318, 318, 318, 339, 339, 339, 532, 532, 532, 532,
+#                        603, 603, 603, 604, 604, 607, 607, 607, 607, 623, 623, 650, 650, 650, 657, 657, 657, 657,
+#                        694, 694, 694, 694, 719, 719, 723, 723, 741, 741, 761, 761, 804, 804, 810, 810, 817, 817, 817,
+#                        833, 833, 945, 945, 945],
+#                       [1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3,
+#                        0, 1, 2, 0, 1, 0, 1, 2, 3, 4, 0, 1, 2, 0, 1, 2, 3,
+#                        0, 1, 2, 0, 1, 0, 1, 2, 3, 0, 1, 0, 3, 4, 0, 1, 2, 3,
+#                        0, 1, 2, 3, 0, 1, 0, 1, 0, 1, 0, 1, 1, 3, 0, 1, 0, 2, 3,
+#                        1, 2, 0, 1, 2])
 # bird_bursts['C22'] = ([547],
 #                       [0])
 # remove unstable bursts
@@ -438,8 +449,8 @@ def syllable_aligned_bursts(experiment_info_name):
         syllable_burst_labels.append(syllable)
         motif_burst_onsets.append(np.mean(cluster_burst_onsets))
 
-    _save_mean_syllables_for_matlab(experiment_info, syllable_burst_onsets, syllable_burst_variances,
-                                    motif_burst_onsets, syllable_burst_labels, reference_syllables)
+    # _save_mean_syllables_for_matlab(experiment_info, syllable_burst_onsets, syllable_burst_variances,
+    #                                 motif_burst_onsets, syllable_burst_labels, reference_syllables)
 
 
 def motif_aligned_bursts(experiment_info_name):
@@ -622,25 +633,25 @@ def motif_aligned_bursts(experiment_info_name):
 
     plt.show()
 
-    bursts = all_cluster_spikes.keys()
-    bursts.sort()
-    for i in range(n_motifs):
-        fig_i = plt.figure(i + 3)
-        ax_i = fig_i.add_subplot(1, 1, 1)
-        for j, b in enumerate(bursts):
-            try:
-                t_spike = all_cluster_spikes[b][i]
-                for t in t_spike:
-                    ax_i.plot([t, t], [j, j + 1], 'k-', linewidth=1)
-            except KeyError:
-                continue
-        ax_i.set_xlabel('Time (s)')
-        ax_i.set_ylabel('Neuron')
-        title_str = 'Sequence motif %d' % (i + 1)
-        ax_i.set_title(title_str)
-        fig_suffix = 'motif_%d_non-RA_neurons_sequence.pdf' % (i + 1)
-        fig_name = os.path.join(cluster_folder, 'burst_identity', fig_suffix)
-        plt.savefig(fig_name)
+    # bursts = all_cluster_spikes.keys()
+    # bursts.sort()
+    # for i in range(n_motifs):
+    #     fig_i = plt.figure(i + 3)
+    #     ax_i = fig_i.add_subplot(1, 1, 1)
+    #     for j, b in enumerate(bursts):
+    #         try:
+    #             t_spike = all_cluster_spikes[b][i]
+    #             for t in t_spike:
+    #                 ax_i.plot([t, t], [j, j + 1], 'k-', linewidth=1)
+    #         except KeyError:
+    #             continue
+    #     ax_i.set_xlabel('Time (s)')
+    #     ax_i.set_ylabel('Neuron')
+    #     title_str = 'Sequence motif %d' % (i + 1)
+    #     ax_i.set_title(title_str)
+    #     fig_suffix = 'motif_%d_non-RA_neurons_sequence.pdf' % (i + 1)
+    #     fig_name = os.path.join(cluster_folder, 'burst_identity', fig_suffix)
+    #     plt.savefig(fig_name)
 
     # motif_times = 0.0, motif_finder_data.stop[0] - motif_finder_data.start[0]
     # _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_variances, [motif_times[0]],
@@ -807,8 +818,9 @@ def fix_motifs(experiment_info_name):
     # # get clusters
     # data_folder = experiment_info['SiProbe']['DataBasePath']
     cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-    # C22
-    keep_motifs = [0, 2, 3, 4, 7, 10, 11, 13, 14, 15, 16]
+    # C22 - joining it down to the 11 common motifs
+    keep_motifs = [0, 2, 3, 4, 7, 10, 11, 13, 14, 15, 16] # non-RA style
+    # keep_motifs = [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12] # RA style
     load_clusters = np.unique(clusters_of_interest)
     for i, cluster_id in enumerate(load_clusters):
         summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
@@ -817,8 +829,8 @@ def fix_motifs(experiment_info_name):
             # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
             old_bursts = cPickle.load(summary_burst_file)
         nr_old_trials = len(old_bursts[0])
-        if nr_old_trials == 14:
-            continue
+        # if nr_old_trials == 14:
+        #     continue
         new_bursts = dict()
         for burst_id in old_bursts:
             new_bursts[burst_id] = []
@@ -851,6 +863,6 @@ if __name__ == '__main__':
         assert len(clusters_of_interest) == len(burst_ids)
 
         # syllable_aligned_bursts(info_name)
-        motif_aligned_bursts(info_name)
+        # motif_aligned_bursts(info_name)
         # manual_burst_proofing(info_name)
-        # fix_motifs(info_name)
+        fix_motifs(info_name)
