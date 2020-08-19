@@ -91,11 +91,12 @@ def map_trial_time_to_trial_syllable(t_trial, trial_nr, egui_syllables):
         trial_offset = syllable.offsets[trial_index]
         # DIRTY HACK for C23:
         try:
-            if trial_onset <= t_trial <= trial_offset + 0.01: # offset uncertainty set to 10 ms
+            # if trial_onset <= t_trial <= trial_offset + 0.01: # offset uncertainty set to 10 ms
+            if trial_onset <= t_trial <= trial_offset:
                 return label, (t_trial - trial_onset)[0] # dirty hack to return non-array but float
         except ValueError:
             for i in range(len(trial_onset)):
-                # if trial_onset[i] <= t_trial <= trial_offset[i]:
+                # if trial_onset[i] <= t_trial <= trial_offset[i] + 0.01: # offset uncertainty set to 10 ms
                 if trial_onset[i] <= t_trial <= trial_offset[i]:
                     return label, t_trial - trial_onset[i]
 

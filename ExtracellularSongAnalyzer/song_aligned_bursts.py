@@ -11,6 +11,7 @@ import utilities as utils
 
 bird_bursts = dict()
 bird_info = dict()
+cell_ids = []
 clusters_of_interest = []
 burst_ids = []
 
@@ -18,9 +19,9 @@ bird_info['C21'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C21\clustered\
 bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment.info'
 # bird_info['C22'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C22\d2_afternoon_song_stim\experiment_C22_d2_afternoon_song_alignment_non-RA.info'
 # use the following for motif-level variability
-# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
+bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment_BAonly.info'
 # and this one for syllable-level variability
-bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
+# bird_info['C23'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C23\C23_190611_131550\experiment_C23_song_alignment.info'
 bird_info['C24'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C24\experiment_C24_alignment.info'
 bird_info['C25'] = r'Z:\Robert\PolychronousProject\HVC_recordings\C25\experiment_C25_alignment.info'
 
@@ -141,6 +142,124 @@ bird_bursts['C25'] = ([16, 50, 77, 79, 95, 104, 119, 139, 159, 187, 189, 194, 20
 # remove unstable bursts
 # bird_bursts['C25'] = ([110, 130, 189, 521, 240, 289, 310, 346, 366, 412, 432],
 #                       [0, 0, 0, 0, 1, 1, 0, 2, 1, 0, 1])
+
+
+def _load_common_data(experiment_info_name):
+    # load all bursts in all trials
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+
+    # get motif times
+    motif_finder_data = cp.reader.read_motifs(os.path.join(experiment_info['Motifs']['DataBasePath'],
+                                                           experiment_info['Motifs']['MotifFilename']))
+
+    # # get clusters
+    # data_folder = experiment_info['SiProbe']['DataBasePath']
+    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
+    # get bursts, burst spike times and spontaneous spike times
+    # load all bursts
+    cluster_bursts = dict()
+    cluster_celltypes = dict()
+    cluster_bursts_proofread = dict()
+    proofread = False
+    for i, cluster_id in enumerate(clusters_of_interest):
+        summary_burst_suffix = 'burst_times_waveforms_cluster_%d.pkl' % cluster_id
+        summary_burst_suffix_proofed = 'burst_times_waveforms_cluster_%d_proofread.pkl' % cluster_id
+        summary_burst_fname = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix)
+        summary_burst_fname_proofed = os.path.join(cluster_folder, 'burst_identity', summary_burst_suffix_proofed)
+        with open(summary_burst_fname, 'rb') as summary_burst_file:
+            # cluster_bursts[cluster_id] = cPickle.load(summary_burst_file)
+            tmp_bursts = cPickle.load(summary_burst_file)
+        if proofread:
+            with open(summary_burst_fname_proofed, 'rb') as summary_burst_file_proofed:
+                #     cluster_bursts[cluster_id] = cPickle.load(summary_burst_file_proofed)
+                tmp_bursts_proofed = cPickle.load(summary_burst_file_proofed)
+        # select burst ID
+        # cluster_bursts[cluster_id] = tmp_bursts[burst_ids[i]]
+        # not proofread
+        clean_burst = _clean_up_bursts(tmp_bursts[burst_ids[i]])
+        checksum = 0
+        for trial_burst in clean_burst:
+            if len(trial_burst):
+                checksum = 1
+        if checksum:
+            cluster_bursts[i] = clean_burst
+            cluster_celltypes[i] = celltypes[i]
+        # proofread
+        if proofread:
+            clean_burst_proofread = _clean_up_bursts(tmp_bursts_proofed)
+            checksum = 0
+            for trial_burst in clean_burst_proofread:
+                if len(trial_burst):
+                    checksum = 1
+            if len(clean_burst_proofread):
+                cluster_bursts_proofread[i] = clean_burst_proofread
+
+    # now sort this by cell id
+    # types_per_cell = []
+    # types_per_cell.append(cluster_celltypes[0])
+    # for i in range(1, len(cell_ids)):
+    #     if cell_ids[i] == cell_ids[i - 1]:
+    #         continue
+    #     types_per_cell.append(celltypes[i])
+    cell_bursts = dict()
+    types_per_cell = dict()
+    unique_cell_ids = np.unique(cell_ids)
+    for cell_id in unique_cell_ids:
+        burst_indices = [i for i, x in enumerate(cell_ids) if x == cell_id]
+        types_per_cell[cell_id] = celltypes[burst_indices[0]]
+        joint_bursts = []
+        n_trials = len(cluster_bursts[cluster_bursts.keys()[0]])
+        for i in range(n_trials):
+            common_spikes = []
+            for burst_index in burst_indices:
+                if not cluster_bursts.has_key(burst_index):
+                    continue
+                common_spikes.extend(cluster_bursts[burst_index][i])
+            common_spikes.sort()
+            joint_bursts.append(np.array(common_spikes))
+        cell_bursts[cell_id] = joint_bursts
+
+    common_data = dict()
+    common_data['motif'] = motif_finder_data
+    common_data['bursts'] = cell_bursts
+    common_data['celltypes'] = types_per_cell
+    common_data['bursts_proofread'] = cluster_bursts_proofread
+
+    return common_data
+
+
+def _clean_up_bursts(bursts):
+    # ugh I should have taken care of this during burst sorting... remove FP at ISIs <= 1 ms
+    # also only keep all spikes with ISIs < 10 ms
+    clean_bursts = []
+    trials = len(bursts)
+    for trial in range(trials):
+        spikes = bursts[trial]
+        if len(spikes[0]) < 2:
+            clean_bursts.append([])
+            # clean_bursts.append(spikes[0])
+            continue
+        # tmp = spikes[0]
+        tmp = []
+        for i in range(len(spikes[0]) - 1):
+            if spikes[0][i + 1] - spikes[0][i] >= 0.001:
+                tmp.append(spikes[0][i + 1])
+                tmp.append(spikes[0][i])
+            else:
+                continue
+        tmp = np.unique(tmp)
+        tmp_burst = []
+        for i in range(len(tmp) - 1):
+            if tmp[i + 1] - tmp[i] < 0.01:
+                tmp_burst.append(tmp[i + 1])
+                tmp_burst.append(tmp[i])
+            else:
+                break
+        cleaned_tmp_burst = np.unique(tmp_burst)
+        clean_bursts.append(cleaned_tmp_burst)
+
+    return clean_bursts
 
 
 def _save_individual_syllables_for_matlab(experiment_info, motif_ids, burst_onset_times, syllable_onset_times, syllable_offset_times,
@@ -269,6 +388,25 @@ def _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_varia
     spacetime['bS'] = burst_variance
 
     scipy.io.savemat(summary_fname, {'SpaceTime': spacetime})
+
+
+def _save_motif_spikes_for_matlab(experiment_info, cell_types, spike_times):
+    print 'Saving spike times in motif in matlab format...'
+    cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
+    summary_suffix = 'motif_aligned_spike_times_ME.mat'
+    summary_fname = os.path.join(cluster_folder, 'burst_identity', summary_suffix)
+    spacetime = {}  # Vigi format
+
+    # cell types
+    ct = np.array(cell_types, dtype=np.object)
+    spacetime['celltype'] = ct
+
+    # spike times
+    st = np.array(spike_times, dtype=np.object)
+    spacetime['spiketimes'] = st
+
+    scipy.io.savemat(summary_fname, {'MotifSpikes': spacetime})
+
 
 def syllable_aligned_bursts(experiment_info_name):
     """
@@ -664,6 +802,64 @@ def motif_aligned_bursts(experiment_info_name):
     #                        [motif_times[0]], [motif_times[1]])
 
 
+def motif_aligned_cell_bursts(experiment_info_name):
+    '''
+    Alignment of all bursts sorted by cell in individual trials.
+    Possible because they have been recorded simultaneously.
+    '''
+    with open(experiment_info_name, 'r') as data_file:
+        experiment_info = ast.literal_eval(data_file.read())
+    common_data = _load_common_data(experiment_info_name)
+    motif_finder_data = common_data['motif']
+    cell_bursts = common_data['bursts']
+    cluster_bursts_proofread = common_data['bursts_proofread']
+    cluster_celltypes = common_data['celltypes']
+    proofread = False
+
+    # MOTIF FINDER ALIGNMENT
+    n_motifs = len(motif_finder_data.start)
+    # for Margot: find motif that has most active cells (she doesn't want average aligned to core motif)
+    max_cells, max_motif = 0, 0
+    for i in range(n_motifs):
+        motif_cells = 0
+        for cluster_id, burst in cell_bursts.iteritems():
+            motif_cells += len(burst[i]) > 0
+        if motif_cells > max_cells:
+            max_cells = motif_cells
+            max_motif = i
+
+    spike_times_aligned = []
+    cell_types_aligned = []
+    for cluster_id, burst in cell_bursts.iteritems():
+        if len(burst[max_motif]):
+            motif_start = motif_finder_data.start[max_motif]
+            motif_warp = motif_finder_data.warp[max_motif]
+            burst_times_motif = (burst[max_motif] - motif_start) / motif_warp
+            spike_times_aligned.append(burst_times_motif)
+            cell_types_aligned.append(cluster_celltypes[cluster_id])
+
+    fig3 = plt.figure(2)
+    ax3 = fig3.add_subplot(1, 1, 1)
+    print 'Cell ID\tCell type\tSpike times'
+    for i, t_vec in enumerate(spike_times_aligned):
+        print '%d\t%s\t%s' % (i, cell_types_aligned[i], str(t_vec))
+        for t in t_vec:
+            ax3.plot([t, t], [i, i + 1], 'k-', linewidth=1)
+    ax3.set_title('Mean burst onset times')
+    ax3.set_xlabel('Time (s)')
+
+    plt.show()
+
+    # motif_times = 0.0, motif_finder_data.stop[max_motif] - motif_finder_data.start[max_motif]
+    _save_motif_spikes_for_matlab(experiment_info, cell_types_aligned, spike_times_aligned)
+
+    # # ugly HACK for C23: because we're using the second part (BA), shift motif onset to first burst time
+    # tmp_offset = 0.428
+    # motif_times = 0.0, motif_finder_data.stop[0] - motif_finder_data.start[0] - tmp_offset
+    # _save_motif_for_matlab(experiment_info, np.array(burst_onset_times) - tmp_offset, burst_onset_variances,
+    #                        [motif_times[0]], [motif_times[1]])
+
+
 def manual_burst_proofing(experiment_info_name):
     '''
     Manually check burst spikes and add missing spike times
@@ -854,9 +1050,9 @@ if __name__ == '__main__':
         while not valid_bird:
             bird_id = raw_input('Please enter a bird ID (C21-25): ')
             try:
-                clusters_of_interest, burst_ids = bird_bursts[bird_id]
+                # clusters_of_interest, burst_ids = bird_bursts[bird_id]
                 info_name = bird_info[bird_id]
-                # clusters_of_interest, burst_ids = utils.load_burst_info(info_name)
+                cell_ids, clusters_of_interest, burst_ids, celltypes = utils.load_burst_info(info_name, cells=True)
                 valid_bird = True
             except KeyError:
                 print 'Please enter a valid bird ID (C21-25)'
@@ -864,5 +1060,6 @@ if __name__ == '__main__':
 
         # syllable_aligned_bursts(info_name)
         # motif_aligned_bursts(info_name)
+        motif_aligned_cell_bursts(info_name)
         # manual_burst_proofing(info_name)
-        fix_motifs(info_name)
+        # fix_motifs(info_name)

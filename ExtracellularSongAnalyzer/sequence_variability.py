@@ -787,6 +787,7 @@ def burst_sequence_syllable_alignment(experiment_info_name):
     common_data = _load_common_data(experiment_info_name)
     motif_finder_data = common_data['motif']
     cluster_bursts = common_data['bursts']
+    cluster_celltypes = common_data['celltypes']
 
     egui_syllables = utils.load_syllables_from_egui(experiment_info['Motifs']['eGUIFilename'])
 
@@ -943,6 +944,7 @@ def burst_sequence_syllable_alignment(experiment_info_name):
         ax2 = fig1.add_subplot(2, nr_syl, n + nr_syl + 1)
         mean_burst_times = []
         burst_variabilities = []
+        aligned_burst_types = []
         for burst_id in all_burst_times:
             t_vec = np.array(all_burst_times[burst_id])
             if len(t_vec) > 1:
@@ -950,6 +952,7 @@ def burst_sequence_syllable_alignment(experiment_info_name):
                 rmse = np.sqrt(np.dot(t_vec - mean_t_vec, t_vec - mean_t_vec) / len(t_vec))
                 mean_burst_times.append(mean_t_vec)
                 burst_variabilities.append(rmse)
+                aligned_burst_types.append(cluster_celltypes[burst_id])
         if len(mean_burst_times):
             mean_burst_times = np.array(mean_burst_times)
             burst_variabilities = np.array(burst_variabilities)
@@ -966,9 +969,9 @@ def burst_sequence_syllable_alignment(experiment_info_name):
         ref_syl_duration = egui_syllables[syl].offsets[syl_index] - egui_syllables[syl].onsets[syl_index]
         print 'Syllable %s ref duration = %.3f ms' % (syl, ref_syl_duration)
         # print 'Syllable %s ref duration = %.3f ms' % (syl, ref_syl_duration[1]) # C23
-        print 'Mean burst time (ms)\tBurst time RMSE (ms)'
+        print 'Mean burst time (ms)\tBurst time RMSE (ms)\tCell type'
         for i in range(len(mean_burst_times)):
-            print '%.3f\t%.3f' % (1e3 * mean_burst_times[i], 1e3 * burst_variabilities[i])
+            print '%.3f\t%.3f\t%s' % (1e3 * mean_burst_times[i], 1e3 * burst_variabilities[i], aligned_burst_types[i])
 
         # # for C22: visualize aligned burst onset time histogram for last syllable
         # if syl == u'e':
@@ -1334,8 +1337,8 @@ if __name__ == '__main__':
         assert len(clusters_of_interest) == len(burst_ids)
 
         # burst_interval_scaling_per_trial(info_name)
-        burst_sequence_alignment_per_trial(info_name)
-        # burst_sequence_syllable_alignment(info_name)
+        # burst_sequence_alignment_per_trial(info_name)
+        burst_sequence_syllable_alignment(info_name)
         # burst_sequence_syllable_alignment_shuffle(info_name)
         # pairwise_burst_distance_jitter(info_name)
         # burst_sequence_visualization(info_name)
