@@ -390,10 +390,10 @@ def _save_motif_for_matlab(experiment_info, burst_onset_times, burst_onset_varia
     scipy.io.savemat(summary_fname, {'SpaceTime': spacetime})
 
 
-def _save_motif_spikes_for_matlab(experiment_info, cell_types, spike_times):
+def _save_motif_spikes_for_matlab(experiment_info, cell_types, spike_times, motif_nr):
     print 'Saving spike times in motif in matlab format...'
     cluster_folder = experiment_info['SiProbe']['ClusterBasePath']
-    summary_suffix = 'motif_aligned_spike_times_ME.mat'
+    summary_suffix = 'motif_%d_aligned_spike_times_ME.mat' % motif_nr
     summary_fname = os.path.join(cluster_folder, 'burst_identity', summary_suffix)
     spacetime = {}  # Vigi format
 
@@ -827,31 +827,38 @@ def motif_aligned_cell_bursts(experiment_info_name):
         if motif_cells > max_cells:
             max_cells = motif_cells
             max_motif = i
+    max_motif = 4
+    print 'Aligning bursts to motif nr. %d' % max_motif
 
     spike_times_aligned = []
     cell_types_aligned = []
+    cluster_ids_aligned = []
     for cluster_id, burst in cell_bursts.iteritems():
+        cluster_ids_aligned.append(cluster_id)
+        cell_types_aligned.append(cluster_celltypes[cluster_id])
         if len(burst[max_motif]):
             motif_start = motif_finder_data.start[max_motif]
             motif_warp = motif_finder_data.warp[max_motif]
-            burst_times_motif = (burst[max_motif] - motif_start) / motif_warp
+            burst_times_motif = (burst[max_motif] - motif_start) #/ motif_warp
             spike_times_aligned.append(burst_times_motif)
-            cell_types_aligned.append(cluster_celltypes[cluster_id])
+        else:
+            spike_times_aligned.append(np.array([]))
 
     fig3 = plt.figure(2)
     ax3 = fig3.add_subplot(1, 1, 1)
     print 'Cell ID\tCell type\tSpike times'
     for i, t_vec in enumerate(spike_times_aligned):
-        print '%d\t%s\t%s' % (i, cell_types_aligned[i], str(t_vec))
+        print '%d\t%s\t%s' % (cluster_ids_aligned[i], cell_types_aligned[i], str(t_vec))
         for t in t_vec:
             ax3.plot([t, t], [i, i + 1], 'k-', linewidth=1)
-    ax3.set_title('Mean burst onset times')
+    ax3.set_title('Spike times')
     ax3.set_xlabel('Time (s)')
+    ax3.set_ylabel('Cell ID')
 
     plt.show()
 
     # motif_times = 0.0, motif_finder_data.stop[max_motif] - motif_finder_data.start[max_motif]
-    _save_motif_spikes_for_matlab(experiment_info, cell_types_aligned, spike_times_aligned)
+    _save_motif_spikes_for_matlab(experiment_info, cell_types_aligned, spike_times_aligned, max_motif)
 
     # # ugly HACK for C23: because we're using the second part (BA), shift motif onset to first burst time
     # tmp_offset = 0.428
